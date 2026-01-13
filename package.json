@@ -1,0 +1,14 @@
+{
+  "name": "fridayapp",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/client\" \"npm run dev -w apps/server\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

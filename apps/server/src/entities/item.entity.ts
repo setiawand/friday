@@ -1,0 +1,46 @@
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Board } from './board.entity';
+import { Group } from './group.entity';
+import { ColumnValue } from './column-value.entity';
+
+@Entity()
+export class Item {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  board_id: string;
+
+  @ManyToOne(() => Board, (board) => board.items)
+  @JoinColumn({ name: 'board_id' })
+  board: Board;
+
+  @Column()
+  group_id: string;
+
+  @ManyToOne(() => Group, (group) => group.items)
+  @JoinColumn({ name: 'group_id' })
+  group: Group;
+
+  @Column()
+  position: number;
+
+  @Column()
+  created_by: string;
+
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
+
+  @Column({ nullable: true })
+  archived_at: Date;
+
+  @OneToMany(() => ColumnValue, (columnValue) => columnValue.item, { cascade: true })
+  column_values: ColumnValue[];
+
+  constructor(partial: Partial<Item>) {
+    Object.assign(this, partial);
+  }
+}
