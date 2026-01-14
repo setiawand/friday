@@ -29,12 +29,8 @@ import { Notification } from './entities/notification.entity';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'friday_user',
-      password: 'friday_password',
-      database: 'friday_db',
+      type: 'sqlite',
+      database: 'friday.sqlite',
       entities: [Board, Column, Group, Item, ColumnValue, Workspace, Automation, ActivityLog, Update, User, File, Notification],
       synchronize: true, // Auto-create tables (dev only)
     }),

@@ -11,13 +11,13 @@ export class Automation {
   @Column()
   trigger: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'simple-json', nullable: true })
   conditions: Record<string, any>;
 
   @Column()
   action: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'simple-json', nullable: true })
   action_params: Record<string, any>;
 
   @Column({ default: true })

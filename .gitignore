@@ -1,3 +1,4 @@
 node_modules
 apps/client/.next
 apps/server/dist
+.DS_Store

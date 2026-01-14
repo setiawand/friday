@@ -47,7 +47,8 @@ export class BoardsService {
     await this.createColumn(newBoard.id, { title: 'Item', type: ColumnType.TEXT, position: 0 });
     await this.createColumn(newBoard.id, { title: 'Status', type: ColumnType.STATUS, position: 1, settings: { options: ['To Do', 'In Progress', 'Done'] } });
     await this.createColumn(newBoard.id, { title: 'Date', type: ColumnType.DATE, position: 2 });
-    
+    await this.createColumn(newBoard.id, { title: 'End Date', type: ColumnType.DATE, position: 3 });
+
     // Create default group
     await this.createGroup(newBoard.id, { name: 'Group 1', position: 0 });
 

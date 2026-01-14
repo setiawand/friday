@@ -22,13 +22,13 @@ export class Column {
   @JoinColumn({ name: 'board_id' })
   board: Board;
 
-  @DbColumn({ type: 'enum', enum: ColumnType })
+  @DbColumn({ type: 'text' })
   type: ColumnType;
 
   @DbColumn()
   title: string;
 
-  @DbColumn({ type: 'jsonb', default: {} })
+  @DbColumn({ type: 'simple-json', nullable: true })
   settings: Record<string, any>;
 
   @DbColumn()

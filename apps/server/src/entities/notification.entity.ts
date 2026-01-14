@@ -27,7 +27,7 @@ export class Notification {
   @JoinColumn({ name: 'actor_id' })
   actor: User;
 
-  @Column({ type: 'enum', enum: NotificationType })
+  @Column({ type: 'text' })
   type: NotificationType;
 
   @Column()

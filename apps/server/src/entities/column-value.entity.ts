@@ -21,7 +21,7 @@ export class ColumnValue {
   @JoinColumn({ name: 'column_id' })
   column: BoardColumn;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   value: any;
 
   @UpdateDateColumn()

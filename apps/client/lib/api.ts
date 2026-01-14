@@ -36,11 +36,11 @@ export async function fetchBoard(id: string) {
 }
 
 // Groups
-export async function createGroup(boardId: string, title: string) {
+export async function createGroup(boardId: string, data: any) {
   const res = await fetch(`${API_URL}/boards/${boardId}/groups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
@@ -49,7 +49,7 @@ export async function updateGroup(boardId: string, groupId: string, title: strin
   const res = await fetch(`${API_URL}/boards/${boardId}/groups/${groupId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ name: title }),
   });
   return res.json();
 }
@@ -61,11 +61,11 @@ export async function deleteGroup(boardId: string, groupId: string) {
 }
 
 // Columns
-export async function createColumn(boardId: string, title: string, type: string) {
+export async function createColumn(boardId: string, data: any) {
   const res = await fetch(`${API_URL}/boards/${boardId}/columns`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, type }),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
@@ -86,22 +86,22 @@ export async function reorderColumns(boardId: string, columnIds: string[]) {
 
 // Items
 export async function fetchItems(boardId: string) {
-  const res = await fetch(`${API_URL}/boards/${boardId}/items`);
+  const res = await fetch(`${API_URL}/items?board_id=${boardId}`);
   return res.json();
 }
 
-export async function createItem(boardId: string, groupId: string, name: string) {
-  const res = await fetch(`${API_URL}/boards/${boardId}/items`, {
+export async function createItem(data: any) {
+  const res = await fetch(`${API_URL}/items`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ group_id: groupId, name }),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
 
 export async function updateColumnValue(itemId: string, columnId: string, value: any) {
   const res = await fetch(`${API_URL}/items/${itemId}/values`, {
-    method: 'POST',
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ column_id: columnId, value }),
   });
@@ -115,8 +115,8 @@ export async function deleteItem(itemId: string) {
 }
 
 // Activity Logs
-export async function fetchItemActivityLogs(itemId: string) {
-  const res = await fetch(`${API_URL}/activity-logs/items/${itemId}`);
+export async function fetchItemActivityLogs(boardId: string, itemId: string) {
+  const res = await fetch(`${API_URL}/boards/${boardId}/activity-logs/items/${itemId}`);
   return res.json();
 }
 export const getItemLogs = fetchItemActivityLogs;

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Board, Group, Item, Column, ColumnType } from '@/types';
 import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
-import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare } from 'lucide-react';
+import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import KanbanBoard from './KanbanBoard';
 import AutomationModal from './AutomationModal';
@@ -11,6 +11,7 @@ import ActivityLogModal from './ActivityLogModal';
 import ItemSidePanel from './ItemSidePanel';
 import { io } from 'socket.io-client';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import TimelineView from './TimelineView';
 
 interface BoardCanvasProps {
   boardId: string;
@@ -25,7 +26,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [board, setBoard] = useState<Board | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'timeline'>('table');
   const [isAutomationOpen, setIsAutomationOpen] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -325,6 +326,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
               >
                 <LayoutGrid size={16} /> Kanban
               </button>
+              <button 
+                onClick={() => setViewMode('timeline')}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  viewMode === 'timeline' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                <CalendarDays size={16} /> Timeline
+              </button>
             </div>
             
             <div className="flex items-center gap-3">
@@ -444,37 +455,45 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
             />
           )}
 
-          {viewMode === 'table' ? (
-        <DragDropContext onDragEnd={onDragEnd}>
-          {board.groups?.map(group => (
-            <GroupView
-                key={group.id}
-                group={group}
-                columns={board.columns || []}
-                items={getSortedItems(items.filter(i => i.group_id === group.id))}
-                onCreateItem={() => handleCreateItem(group.id)}
-                onUpdateValue={handleUpdateValue}
-                onDeleteColumn={handleDeleteColumn}
-                onUpdateGroup={handleUpdateGroup}
-                onDeleteGroup={handleDeleteGroup}
-                onDeleteItem={handleDeleteItem}
-                onItemClick={setSelectedItem}
-              />
-            ))}
-          <button
-            onClick={handleAddGroup}
-            className="flex items-center gap-2 mt-4 px-4 py-2.5 text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all font-medium text-sm"
-          >
-            <Plus size={18} /> Add New Group
-          </button>
-        </DragDropContext>
-      ) : (
-        <KanbanBoard 
-          board={board} 
-          items={items} 
-          onUpdateItem={handleUpdateValue} 
-        />
-      )}
+          {viewMode === 'table' && (
+            <DragDropContext onDragEnd={onDragEnd}>
+              {board.groups?.map(group => (
+                <GroupView
+                  key={group.id}
+                  group={group}
+                  columns={board.columns || []}
+                  items={getSortedItems(items.filter(i => i.group_id === group.id))}
+                  onCreateItem={() => handleCreateItem(group.id)}
+                  onUpdateValue={handleUpdateValue}
+                  onDeleteColumn={handleDeleteColumn}
+                  onUpdateGroup={handleUpdateGroup}
+                  onDeleteGroup={handleDeleteGroup}
+                  onDeleteItem={handleDeleteItem}
+                  onItemClick={setSelectedItem}
+                />
+              ))}
+              <button
+                onClick={handleAddGroup}
+                className="flex items-center gap-2 mt-4 px-4 py-2.5 text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all font-medium text-sm"
+              >
+                <Plus size={18} /> Add New Group
+              </button>
+            </DragDropContext>
+          )}
+          {viewMode === 'kanban' && (
+            <KanbanBoard 
+              board={board} 
+              items={items} 
+              onUpdateItem={handleUpdateValue} 
+            />
+          )}
+          {viewMode === 'timeline' && (
+            <TimelineView
+              board={board}
+              items={items}
+              onUpdateItem={handleUpdateValue}
+            />
+          )}
     </div>
     
     {/* Side Panel */}
