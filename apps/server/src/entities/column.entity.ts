@@ -6,6 +6,8 @@ export enum ColumnType {
   STATUS = 'status',
   DATE = 'date',
   PERSON = 'person',
+  NUMBERS = 'numbers',
+  FILES = 'files',
 }
 
 @Entity()

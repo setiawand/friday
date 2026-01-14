@@ -6,6 +6,13 @@ export interface Workspace {
   is_active: boolean;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  color: string;
+}
+
 export interface Board {
   id: string;
   workspace_id: string;
@@ -42,6 +49,8 @@ export enum ColumnType {
   STATUS = 'status',
   DATE = 'date',
   PERSON = 'person',
+  NUMBERS = 'numbers',
+  FILES = 'files',
 }
 
 export interface Column {
@@ -60,4 +69,37 @@ export interface ColumnValue {
   column_id: string;
   value: any;
   updated_at: string;
+}
+
+export interface Update {
+  id: string;
+  item_id: string;
+  content: string;
+  user_id: string;
+  created_at: string;
+  user?: User;
+}
+
+export interface ActivityLog {
+  id: string;
+  board_id: string;
+  item_id: string;
+  user_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: any;
+  created_at: string;
+}
+
+export interface File {
+  id: string;
+  item_id: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+  user_id: string;
+  user?: User;
+  created_at: string;
 }

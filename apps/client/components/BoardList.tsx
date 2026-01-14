@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Board, Workspace } from '@/types';
-import { fetchBoards, createBoard, fetchWorkspaces } from '@/lib/api';
+import { fetchBoards, createBoard, fetchWorkspaces, createWorkspace } from '@/lib/api';
 import Link from 'next/link';
 import { Layout, Plus, MoreHorizontal, Clock, ArrowRight, X } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function BoardList() {
   const [boards, setBoards] = useState<Board[]>([]);
@@ -12,20 +13,44 @@ export default function BoardList() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
-    Promise.all([fetchBoards(), fetchWorkspaces()])
-      .then(([boardsData, workspacesData]) => {
+    if (!user) return;
+
+    const load = async () => {
+      try {
+        const [boardsData, workspacesData] = await Promise.all([
+          fetchBoards(),
+          fetchWorkspaces(),
+        ]);
+
+        let finalWorkspaces = workspacesData;
+
+        if (!finalWorkspaces || finalWorkspaces.length === 0) {
+          const defaultWorkspace = await createWorkspace({
+            name: `${user.name}'s Workspace`,
+            owner_id: user.id,
+            is_active: true,
+          });
+          finalWorkspaces = [defaultWorkspace];
+        }
+
         setBoards(boardsData);
-        setWorkspaces(workspacesData);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+        setWorkspaces(finalWorkspaces);
+      } catch (error) {
+        console.error('Failed to load boards or workspaces', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [user]);
 
   const handleCreateBoard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBoardName.trim() || workspaces.length === 0) return;
+    if (!newBoardName.trim() || workspaces.length === 0 || !user) return;
 
     try {
       // Use first workspace for MVP
@@ -33,7 +58,7 @@ export default function BoardList() {
       const newBoard = await createBoard({
         name: newBoardName,
         workspace_id: workspaceId,
-        created_by: 'user-1', // Mock user
+        created_by: user.id,
         description: 'New board'
       });
       setBoards([...boards, newBoard]);

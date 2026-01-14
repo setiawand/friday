@@ -38,6 +38,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { event: 'joinedBoard', data: room };
   }
 
+  @SubscribeMessage('joinUser')
+  handleJoinUser(
+    @MessageBody() data: { userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const room = `user:${data.userId}`;
+    client.join(room);
+    return { event: 'joinedUser', data: room };
+  }
+
   @OnEvent('item.created')
   handleItemCreated(payload: any) {
     if (payload.board_id) {
@@ -64,5 +74,19 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (payload.board_id) {
           this.server.to(`board:${payload.board_id}`).emit('item.deleted', payload);
       }
+  }
+
+  @OnEvent('update.created')
+  handleUpdateCreated(payload: any) {
+    if (payload.board_id) {
+      this.server.to(`board:${payload.board_id}`).emit('update.created', payload);
+    }
+  }
+
+  @OnEvent('notification.created')
+  handleNotificationCreated(payload: any) {
+    if (payload.user_id) {
+      this.server.to(`user:${payload.user_id}`).emit('notification.created', payload);
+    }
   }
 }

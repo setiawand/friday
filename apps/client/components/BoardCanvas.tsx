@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import { Board, Group, Item, Column, ColumnType } from '@/types';
 import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
-import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X } from 'lucide-react';
+import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import KanbanBoard from './KanbanBoard';
 import AutomationModal from './AutomationModal';
+import ActivityLogModal from './ActivityLogModal';
+import ItemSidePanel from './ItemSidePanel';
 import { io } from 'socket.io-client';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
@@ -25,24 +27,28 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [isAutomationOpen, setIsAutomationOpen] = useState(false);
+  const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnType, setNewColumnType] = useState<ColumnType>(ColumnType.TEXT);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ columnId: null, direction: 'asc' });
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [socket, setSocket] = useState<any>(null);
 
   useEffect(() => {
     loadData();
 
     // Socket.IO Connection
-    const socket = io('http://localhost:3002');
+    const newSocket = io('http://localhost:3002');
+    setSocket(newSocket);
 
-    socket.on('connect', () => {
+    newSocket.on('connect', () => {
       // console.log('Connected to WebSocket');
-      socket.emit('joinBoard', { boardId });
+      newSocket.emit('joinBoard', { boardId });
     });
 
-    socket.on('item.created', (newItem: Item) => {
+    newSocket.on('item.created', (newItem: Item) => {
       setItems(prev => {
         // Prevent duplicates if we already added it locally
         if (prev.find(i => i.id === newItem.id)) return prev;
@@ -50,7 +56,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       });
     });
 
-    socket.on('column_value.updated', (data: any) => {
+    newSocket.on('column_value.updated', (data: any) => {
       setItems(prev => prev.map(item => {
         if (item.id === data.item_id) {
           const newValues = item.column_values ? [...item.column_values] : [];
@@ -75,16 +81,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       }));
     });
 
-    socket.on('item.archived', (data: any) => {
+    newSocket.on('item.archived', (data: any) => {
         setItems(prev => prev.filter(item => item.id !== data.id));
     });
 
-    socket.on('item.deleted', (data: any) => {
+    newSocket.on('item.deleted', (data: any) => {
       setItems(prev => prev.filter(item => item.id !== data.id));
     });
 
     return () => {
-      socket.disconnect();
+      newSocket.disconnect();
     };
   }, [boardId]);
 
@@ -383,8 +389,10 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
                     >
                       <option value={ColumnType.TEXT}>Text</option>
                       <option value={ColumnType.STATUS}>Status</option>
+                      <option value={ColumnType.NUMBERS}>Numbers</option>
                       <option value={ColumnType.DATE}>Date</option>
                       <option value={ColumnType.PERSON}>Person</option>
+                      <option value={ColumnType.FILES}>Files</option>
                     </select>
                     <button onClick={handleAddColumn} className="p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"><Plus size={16} /></button>
                     <button onClick={() => setIsAddingColumn(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"><X size={16} /></button>
@@ -400,9 +408,20 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
 
               <button 
                 onClick={() => setIsAutomationOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
               >
-                <Zap size={16} className="text-purple-500" /> Automations
+                <Zap size={16} />
+                Automations
+              </button>
+              <button 
+                onClick={() => setIsActivityLogOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <Activity size={16} />
+                Activity
+              </button>
+              <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <MoreHorizontal size={16} />
               </button>
             </div>
           </div>
@@ -418,6 +437,13 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
             columns={board.columns || []}
           />
 
+          {isActivityLogOpen && (
+            <ActivityLogModal
+              boardId={boardId}
+              onClose={() => setIsActivityLogOpen(false)}
+            />
+          )}
+
           {viewMode === 'table' ? (
         <DragDropContext onDragEnd={onDragEnd}>
           {board.groups?.map(group => (
@@ -432,6 +458,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
                 onUpdateGroup={handleUpdateGroup}
                 onDeleteGroup={handleDeleteGroup}
                 onDeleteItem={handleDeleteItem}
+                onItemClick={setSelectedItem}
               />
             ))}
           <button
@@ -449,6 +476,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
         />
       )}
     </div>
+    
+    {/* Side Panel */}
+    {selectedItem && (
+        <ItemSidePanel
+          item={selectedItem}
+          columns={board.columns || []}
+          onClose={() => setSelectedItem(null)}
+          socket={socket}
+        />
+      )}
     </div>
     </div>
   );
@@ -463,7 +500,8 @@ function GroupView({
   onDeleteColumn,
   onUpdateGroup,
   onDeleteGroup,
-  onDeleteItem
+  onDeleteItem,
+  onItemClick
 }: {
   group: Group;
   columns: Column[];
@@ -474,6 +512,7 @@ function GroupView({
   onUpdateGroup: (groupId: string, name: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onDeleteItem: (itemId: string) => void;
+  onItemClick: (item: Item) => void;
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(group.name);
@@ -578,6 +617,7 @@ function GroupView({
                 columns={columns}
                 onUpdateValue={onUpdateValue}
                 onDeleteItem={onDeleteItem}
+                onItemClick={onItemClick}
               />
             ))}
             <tr>
@@ -605,18 +645,27 @@ function ItemRow({
   item,
   columns,
   onUpdateValue,
-  onDeleteItem
+  onDeleteItem,
+  onItemClick
 }: {
   item: Item;
   columns: Column[];
   onUpdateValue: (itemId: string, columnId: string, value: any) => void;
   onDeleteItem: (itemId: string) => void;
+  onItemClick: (item: Item) => void;
 }) {
   return (
     <tr className="group hover:bg-slate-50/50 border-b border-slate-100 last:border-b-0 transition-colors">
       <td className="p-3 border-r border-slate-200 bg-slate-50/30 text-center text-slate-400 sticky left-0 z-10">
         <div className="w-1 h-full bg-blue-500 absolute left-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-slate-50/90 z-20">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-slate-50/90 z-20 gap-1">
+          <button
+            onClick={() => onItemClick(item)}
+            className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+            title="Open Updates"
+          >
+            <MessageSquare size={14} />
+          </button>
           <button
             onClick={() => onDeleteItem(item.id)}
             className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
@@ -624,6 +673,9 @@ function ItemRow({
           >
             <Trash2 size={14} />
           </button>
+        </div>
+        <div className="group-hover:opacity-0 transition-opacity">
+           <MessageSquare size={14} className="mx-auto text-slate-300" />
         </div>
       </td>
       {columns.map(col => {
@@ -652,6 +704,24 @@ function CellEditor({
   value: any;
   onChange: (val: any) => void;
 }) {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue !== (value || '')) {
+      onChange(localValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
   switch (column.type) {
     case ColumnType.STATUS:
       return (
@@ -687,6 +757,70 @@ function CellEditor({
           onChange={(e) => onChange(e.target.value)}
         />
       );
+    case ColumnType.NUMBERS:
+      return (
+        <div className="relative w-full h-full group">
+           <input
+            type="number"
+            className="w-full h-full px-4 py-2 text-sm text-slate-700 outline-none bg-transparent focus:bg-slate-50 placeholder:text-slate-300 transition-colors text-right font-mono"
+            placeholder="0"
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+          />
+           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity">
+              #
+           </div>
+        </div>
+      );
+    case ColumnType.FILES:
+      return (
+        <div className="w-full h-full px-2 flex items-center">
+          {value && Array.isArray(value) && value.length > 0 ? (
+            <div className="flex -space-x-2 overflow-hidden hover:space-x-1 transition-all">
+              {value.map((file: any, i: number) => (
+                <a 
+                  key={i} 
+                  href={file.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-6 h-6 rounded-full bg-blue-100 border border-white flex items-center justify-center text-[10px] text-blue-600 font-bold"
+                  title={file.name}
+                >
+                  F
+                </a>
+              ))}
+              <button 
+                className="w-6 h-6 rounded-full bg-slate-100 border border-white flex items-center justify-center text-slate-400 hover:bg-slate-200"
+                onClick={() => {
+                   const url = prompt('Enter file URL:');
+                   const name = prompt('Enter file name:') || 'File';
+                   if (url) {
+                      const newFiles = [...value, { url, name, type: 'link' }];
+                      onChange(newFiles);
+                   }
+                }}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button 
+              className="text-slate-400 hover:text-blue-600 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 w-full"
+              onClick={() => {
+                 const url = prompt('Enter file URL:');
+                 const name = prompt('Enter file name:') || 'File';
+                 if (url) {
+                    onChange([{ url, name, type: 'link' }]);
+                 }
+              }}
+            >
+              <Plus size={14} /> Add File
+            </button>
+          )}
+        </div>
+      );
     case ColumnType.TEXT:
     default:
       return (
@@ -694,8 +828,10 @@ function CellEditor({
           type="text"
           className="w-full h-full px-4 py-2 text-sm text-slate-700 outline-none bg-transparent focus:bg-slate-50 placeholder:text-slate-300 transition-colors"
           placeholder="Empty"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={localValue}
+          onChange={(e) => setLocalValue(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
         />
       );
   }
