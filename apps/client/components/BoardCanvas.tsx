@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Board, Group, Item, Column, ColumnType } from '@/types';
 import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
 import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays } from 'lucide-react';
@@ -12,6 +12,7 @@ import ItemSidePanel from './ItemSidePanel';
 import { io } from 'socket.io-client';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import TimelineView from './TimelineView';
+import CalendarView from './CalendarView';
 
 interface BoardCanvasProps {
   boardId: string;
@@ -26,7 +27,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [board, setBoard] = useState<Board | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'timeline'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'timeline' | 'calendar'>('table');
   const [isAutomationOpen, setIsAutomationOpen] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -110,17 +111,38 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
     }
   };
 
-  const handleCreateItem = async (groupId: string) => {
+  const handleCreateItem = async (groupId: string): Promise<Item | undefined> => {
     if (!board) return;
     try {
       const newItem = await createItem({
         board_id: board.id,
         group_id: groupId,
-        created_by: 'user-1', // Mock user
+        created_by: 'user-1',
       });
-      setItems([...items, newItem]);
+      setItems(prev => [...prev, newItem]);
+      return newItem;
     } catch (error) {
       console.error('Failed to create item', error);
+      return undefined;
+    }
+  };
+
+  const calendarCreateInFlightRef = useRef(false);
+
+  const handleCreateItemForDate = async (date: Date, columnId: string) => {
+    if (calendarCreateInFlightRef.current) return;
+    calendarCreateInFlightRef.current = true;
+
+    if (!board || !board.groups || board.groups.length === 0) return;
+    const groupId = board.groups[0].id;
+    const newItem = await handleCreateItem(groupId);
+    try {
+      if (!newItem) return;
+      const dateStr = formatDateForInput(date);
+      await handleUpdateValue(newItem.id, columnId, dateStr);
+      setSelectedItem(newItem);
+    } finally {
+      calendarCreateInFlightRef.current = false;
     }
   };
 
@@ -336,6 +358,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
               >
                 <CalendarDays size={16} /> Timeline
               </button>
+              <button 
+                onClick={() => setViewMode('calendar')}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  viewMode === 'calendar' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                <CalendarDays size={16} /> Calendar
+              </button>
             </div>
             
             <div className="flex items-center gap-3">
@@ -492,6 +524,14 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
               board={board}
               items={items}
               onUpdateItem={handleUpdateValue}
+            />
+          )}
+          {viewMode === 'calendar' && (
+            <CalendarView
+              board={board}
+              items={items}
+              onCreateItemForDate={handleCreateItemForDate}
+              onSelectItem={setSelectedItem}
             />
           )}
     </div>
@@ -854,6 +894,13 @@ function CellEditor({
         />
       );
   }
+}
+
+function formatDateForInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function getStatusColor(status: string) {

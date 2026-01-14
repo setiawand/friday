@@ -85,6 +85,12 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
     hasEndDate: boolean;
     startX: number;
     pxPerDay: number;
+    mode: 'move' | 'resize-start' | 'resize-end';
+  } | null>(null);
+  const [dragPreview, setDragPreview] = useState<{
+    itemId: string;
+    startDate: Date;
+    endDate: Date;
   } | null>(null);
 
   const effectiveStartColumnId =
@@ -180,7 +186,12 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
   const totalDays = Math.max(1, daysBetween(startDate, endDate) + 1);
   const dayColumns = Array.from({ length: totalDays }, (_, i) => addDays(startDate, i));
 
-  const handleBarMouseDown = (event: React.MouseEvent, ti: TimelineItem) => {
+  const startDrag = (
+    event: React.MouseEvent,
+    ti: TimelineItem,
+    mode: 'move' | 'resize-start' | 'resize-end',
+  ) => {
+    if (event.button !== 0) return;
     if (!containerRef.current) return;
     if (!effectiveStartColumnId) return;
 
@@ -197,29 +208,80 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
       hasEndDate: ti.hasEndDate,
       startX: event.clientX,
       pxPerDay,
+      mode,
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
+    setDragPreview({
+      itemId: ti.id,
+      startDate: ti.startDate,
+      endDate: ti.endDate,
+    });
 
-  const handleMouseMove = (event: MouseEvent) => {
-    if (!dragStateRef.current) return;
     event.preventDefault();
   };
 
-  const handleMouseUp = (event: MouseEvent) => {
-    if (!dragStateRef.current) {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      return;
+  const handleBarMouseDown = (event: React.MouseEvent, ti: TimelineItem) => {
+    startDrag(event, ti, 'move');
+  };
+
+  const handleResizeStartMouseDown = (event: React.MouseEvent, ti: TimelineItem) => {
+    event.stopPropagation();
+    startDrag(event, ti, 'resize-start');
+  };
+
+  const handleResizeEndMouseDown = (event: React.MouseEvent, ti: TimelineItem) => {
+    event.stopPropagation();
+    startDrag(event, ti, 'resize-end');
+  };
+
+  const handleContainerMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const state = dragStateRef.current;
+    if (!state) return;
+    event.preventDefault();
+
+    const dx = event.clientX - state.startX;
+    const deltaDays = Math.round(dx / state.pxPerDay);
+
+    let previewStart = state.originalStart;
+    let previewEnd = state.originalEnd;
+
+    if (deltaDays !== 0) {
+      if (state.mode === 'move') {
+        previewStart = addDays(state.originalStart, deltaDays);
+        if (state.hasEndDate) {
+          previewEnd = addDays(state.originalEnd, deltaDays);
+        }
+      } else if (state.mode === 'resize-start') {
+        let newStart = addDays(state.originalStart, deltaDays);
+        if (state.hasEndDate && newStart > state.originalEnd) {
+          newStart = state.originalEnd;
+        }
+        previewStart = newStart;
+      } else if (state.mode === 'resize-end') {
+        if (!state.hasEndDate) {
+          return;
+        }
+        let newEnd = addDays(state.originalEnd, deltaDays);
+        if (newEnd < state.originalStart) {
+          newEnd = state.originalStart;
+        }
+        previewEnd = newEnd;
+      }
     }
 
-    const state = dragStateRef.current;
-    dragStateRef.current = null;
+    setDragPreview({
+      itemId: state.itemId,
+      startDate: previewStart,
+      endDate: previewEnd,
+    });
+  };
 
-    window.removeEventListener('mousemove', handleMouseMove);
-    window.removeEventListener('mouseup', handleMouseUp);
+  const handleContainerMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
+    const state = dragStateRef.current;
+    if (!state) return;
+
+    dragStateRef.current = null;
+    setDragPreview(null);
 
     const dx = event.clientX - state.startX;
     const deltaDays = Math.round(dx / state.pxPerDay);
@@ -228,12 +290,37 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
 
     if (!effectiveStartColumnId) return;
 
-    const newStart = addDays(state.originalStart, deltaDays);
-    const newStartStr = formatDateForInput(newStart);
-    onUpdateItem(state.itemId, effectiveStartColumnId, newStartStr);
+    if (state.mode === 'move') {
+      const newStart = addDays(state.originalStart, deltaDays);
+      const newStartStr = formatDateForInput(newStart);
+      onUpdateItem(state.itemId, effectiveStartColumnId, newStartStr);
 
-    if (effectiveEndColumnId !== 'none' && state.hasEndDate) {
-      const newEnd = addDays(state.originalEnd, deltaDays);
+      if (effectiveEndColumnId !== 'none' && state.hasEndDate) {
+        const newEnd = addDays(state.originalEnd, deltaDays);
+        const newEndStr = formatDateForInput(newEnd);
+        onUpdateItem(state.itemId, effectiveEndColumnId, newEndStr);
+      }
+      return;
+    }
+
+    if (state.mode === 'resize-start') {
+      let newStart = addDays(state.originalStart, deltaDays);
+      if (state.hasEndDate && newStart > state.originalEnd) {
+        newStart = state.originalEnd;
+      }
+      const newStartStr = formatDateForInput(newStart);
+      onUpdateItem(state.itemId, effectiveStartColumnId, newStartStr);
+      return;
+    }
+
+    if (state.mode === 'resize-end') {
+      if (effectiveEndColumnId === 'none' || !state.hasEndDate) {
+        return;
+      }
+      let newEnd = addDays(state.originalEnd, deltaDays);
+      if (newEnd < state.originalStart) {
+        newEnd = state.originalStart;
+      }
       const newEndStr = formatDateForInput(newEnd);
       onUpdateItem(state.itemId, effectiveEndColumnId, newEndStr);
     }
@@ -242,13 +329,13 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
   return (
     <div className="border border-slate-200 rounded-xl bg-white shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="text-sm font-medium text-slate-900">Timeline</div>
-            <div className="text-xs text-slate-500">
-              Drag bars to shift dates. End dates move only if they already exist.
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="text-sm font-medium text-slate-900">Timeline</div>
+              <div className="text-xs text-slate-500">
+              Drag bars to shift dates, or drag edges to resize. End dates move only if they already exist.
+              </div>
             </div>
-          </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <span className="font-medium">Start</span>
             <select
@@ -280,7 +367,13 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[600px]" ref={containerRef}>
+        <div
+          className="min-w-[600px]"
+          ref={containerRef}
+          onMouseMove={handleContainerMouseMove}
+          onMouseUp={handleContainerMouseUp}
+          onMouseLeave={handleContainerMouseUp}
+        >
           <div className="grid" style={{ gridTemplateColumns: `240px repeat(${totalDays}, minmax(40px, 1fr))` }}>
             <div className="border-b border-slate-200 bg-slate-50 sticky left-0 z-20"></div>
             {dayColumns.map((d, idx) => (
@@ -294,8 +387,14 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
           </div>
 
           {timelineItems.map((ti, rowIdx) => {
-            const startOffset = Math.max(0, daysBetween(startDate, ti.startDate));
-            const endOffset = Math.max(startOffset, daysBetween(startDate, ti.endDate));
+            const previewForItem =
+              dragPreview && dragPreview.itemId === ti.id ? dragPreview : null;
+
+            const effectiveItemStart = previewForItem ? previewForItem.startDate : ti.startDate;
+            const effectiveItemEnd = previewForItem ? previewForItem.endDate : ti.endDate;
+
+            const startOffset = Math.max(0, daysBetween(startDate, effectiveItemStart));
+            const endOffset = Math.max(startOffset, daysBetween(startDate, effectiveItemEnd));
             const gridColumnStart = startOffset + 2;
             const gridColumnEnd = endOffset + 3;
 
@@ -315,9 +414,21 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
                   ></div>
                 ))}
                 <div
-                  className="h-6 rounded-full bg-blue-500/80 shadow-sm row-start-auto col-start-auto col-span-1 -mt-8 mx-1"
+                  className="relative h-6 rounded-full bg-blue-500/80 shadow-sm row-start-auto col-start-auto col-span-1 -mt-8 mx-1 cursor-move"
                   style={{ gridColumn: `${gridColumnStart} / ${gridColumnEnd}` }}
-                ></div>
+                  onMouseDown={(e) => handleBarMouseDown(e, ti)}
+                >
+                  <div
+                    className="absolute left-0 top-0 h-full w-1 bg-blue-700 cursor-ew-resize"
+                    onMouseDown={(e) => handleResizeStartMouseDown(e, ti)}
+                  />
+                  {ti.hasEndDate && effectiveEndColumnId !== 'none' && (
+                    <div
+                      className="absolute right-0 top-0 h-full w-1 bg-blue-700 cursor-ew-resize"
+                      onMouseDown={(e) => handleResizeEndMouseDown(e, ti)}
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
