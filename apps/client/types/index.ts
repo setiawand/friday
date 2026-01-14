@@ -103,3 +103,15 @@ export interface File {
   user?: User;
   created_at: string;
 }
+
+export interface TimeLog {
+  id: string;
+  item_id: string;
+  user_id: string;
+  start_time: string;
+  end_time?: string;
+  duration_seconds: number;
+  is_running: boolean;
+  created_at: string;
+  user?: User;
+}

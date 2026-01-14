@@ -214,6 +214,30 @@ export async function createUpdate(itemId: string, content: string, userId: stri
   return res.json();
 }
 
+// Time tracking
+export async function fetchTimeLogs(itemId: string) {
+  const res = await fetch(`${API_URL}/items/${itemId}/time-logs`);
+  return res.json();
+}
+
+export async function startTimer(itemId: string, userId: string) {
+  const res = await fetch(`${API_URL}/items/${itemId}/time-logs/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  return res.json();
+}
+
+export async function stopTimer(itemId: string, userId: string) {
+  const res = await fetch(`${API_URL}/items/${itemId}/time-logs/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  return res.json();
+}
+
 // Files
 export async function fetchFiles(itemId: string) {
   const res = await fetch(`${API_URL}/items/${itemId}/files`);

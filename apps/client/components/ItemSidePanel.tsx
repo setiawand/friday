@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Item, Update, Column, ActivityLog, File as ItemFile } from '@/types';
-import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile } from '@/lib/api';
+import { Item, Update, Column, ActivityLog, File as ItemFile, TimeLog } from '@/types';
+import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile, fetchTimeLogs, startTimer, stopTimer } from '@/lib/api';
 import { X, Send, User, Trash2, Link as LinkIcon, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
@@ -14,14 +14,17 @@ interface ItemSidePanelProps {
 }
 
 export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSidePanelProps) {
-  const [activeTab, setActiveTab] = useState<'updates' | 'files' | 'log'>('updates');
+  const [activeTab, setActiveTab] = useState<'updates' | 'files' | 'time' | 'log'>('updates');
   const [updates, setUpdates] = useState<Update[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [files, setFiles] = useState<ItemFile[]>([]);
+  const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [newUpdateContent, setNewUpdateContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
+  const [timeLoading, setTimeLoading] = useState(false);
+  const [timerProcessing, setTimerProcessing] = useState(false);
   const [isAddingFile, setIsAddingFile] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
@@ -41,15 +44,20 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     if (activeTab === 'files') {
       loadFiles();
     }
+    if (activeTab === 'time') {
+      loadTimeLogs();
+    }
   }, [activeTab, item.id]);
 
-  // Listen for real-time updates
   useEffect(() => {
     if (!socket) return;
 
     const handleNewUpdate = (newUpdate: Update) => {
       if (newUpdate.item_id === item.id) {
-        setUpdates(prev => [newUpdate, ...prev]);
+        const enriched = user && !newUpdate.user && newUpdate.user_id === user.id
+          ? { ...newUpdate, user }
+          : newUpdate;
+        setUpdates(prev => [enriched, ...prev]);
       }
     };
 
@@ -64,7 +72,14 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     try {
       setLoading(true);
       const data = await fetchUpdates(item.id);
-      setUpdates(data);
+      const enriched = user
+        ? data.map(u =>
+            !u.user && u.user_id === user.id
+              ? { ...u, user }
+              : u,
+          )
+        : data;
+      setUpdates(enriched);
     } catch (error) {
       console.error('Failed to load updates', error);
     } finally {
@@ -93,6 +108,18 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
       console.error('Failed to load files', error);
     } finally {
       setFilesLoading(false);
+    }
+  };
+
+  const loadTimeLogs = async () => {
+    try {
+      setTimeLoading(true);
+      const data = await fetchTimeLogs(item.id);
+      setTimeLogs(data);
+    } catch (error) {
+      console.error('Failed to load time logs', error);
+    } finally {
+      setTimeLoading(false);
     }
   };
 
@@ -159,6 +186,50 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    const s = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(s / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
+  const handleStartTimer = async () => {
+    if (!user) return;
+    try {
+      setTimerProcessing(true);
+      await startTimer(item.id, user.id);
+      await loadTimeLogs();
+    } catch (error) {
+      console.error('Failed to start timer', error);
+    } finally {
+      setTimerProcessing(false);
+    }
+  };
+
+  const handleStopTimer = async () => {
+    if (!user) return;
+    try {
+      setTimerProcessing(true);
+      await stopTimer(item.id, user.id);
+      await loadTimeLogs();
+    } catch (error) {
+      console.error('Failed to stop timer', error);
+    } finally {
+      setTimerProcessing(false);
+    }
+  };
+
+  const activeTimeLogForUser = user
+    ? timeLogs.find(log => log.is_running && log.user_id === user.id)
+    : undefined;
+
   return (
     <div className="fixed inset-y-0 right-0 w-[500px] bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform duration-300 ease-in-out">
       {/* Header */}
@@ -200,6 +271,16 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
              }`}
           >
             Files
+          </button>
+          <button 
+            onClick={() => setActiveTab('time')}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'time' 
+                ? 'border-blue-500 text-blue-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Time
           </button>
           <button 
              onClick={() => setActiveTab('log')}
@@ -265,9 +346,13 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
                          {update.user_id.charAt(0).toUpperCase()}
                        </div>
                        <div>
-                         <div className="text-sm font-medium text-slate-800">
-                           {update.user ? update.user.name : `User ${update.user_id}`}
-                         </div>
+                        <div className="text-sm font-medium text-slate-800">
+                           {update.user
+                             ? update.user.name
+                             : user && update.user_id === user.id
+                               ? 'You'
+                               : `User ${update.user_id}`}
+                        </div>
                          <div className="text-xs text-slate-400">
                            {formatDistanceToNow(new Date(update.created_at), { addSuffix: true })}
                          </div>
@@ -394,6 +479,76 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
                ))
              )}
            </div>
+        )}
+        {activeTab === 'time' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-slate-800">
+                  Time tracking
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {activeTimeLogForUser
+                    ? `Running since ${formatDistanceToNow(new Date(activeTimeLogForUser.start_time), { addSuffix: true })}`
+                    : 'No active timer'}
+                </div>
+              </div>
+              {activeTimeLogForUser ? (
+                <button
+                  onClick={handleStopTimer}
+                  disabled={timerProcessing}
+                  className="px-4 py-1.5 text-sm rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartTimer}
+                  disabled={timerProcessing || !user}
+                  className="px-4 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Start
+                </button>
+              )}
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+              {timeLoading ? (
+                <div className="text-center py-6 text-slate-400">
+                  Loading time logs...
+                </div>
+              ) : timeLogs.length === 0 ? (
+                <div className="text-center py-6 text-slate-400">
+                  No time logs yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {timeLogs.map(log => (
+                    <div key={log.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <div className="font-medium text-slate-800">
+                          {log.user?.name || `User ${log.user_id}`}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(log.start_time).toLocaleString()}
+                          {log.end_time && (
+                            <> → {new Date(log.end_time).toLocaleString()}</>
+                          )}
+                          {!log.end_time && log.is_running && (
+                            <> • running</>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-slate-800">
+                        {log.end_time || !log.is_running
+                          ? formatDuration(log.duration_seconds)
+                          : '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

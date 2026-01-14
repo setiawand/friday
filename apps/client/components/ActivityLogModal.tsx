@@ -45,8 +45,8 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col transform transition-all scale-100">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-xl sticky top-0 z-10">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto transform transition-all scale-100">
+        <div className="p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
             <div className="p-2 bg-blue-50 rounded-lg">
               <Activity className="text-blue-600 w-5 h-5" />
@@ -61,7 +61,7 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className="p-6 bg-slate-50/50">
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
