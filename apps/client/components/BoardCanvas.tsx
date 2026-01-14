@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Board, Group, Item, Column, ColumnType } from '@/types';
 import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
-import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays } from 'lucide-react';
+import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays, Users } from 'lucide-react';
 import Link from 'next/link';
 import KanbanBoard from './KanbanBoard';
 import AutomationModal from './AutomationModal';
@@ -13,6 +13,7 @@ import { io } from 'socket.io-client';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import TimelineView from './TimelineView';
 import CalendarView from './CalendarView';
+import WorkloadView from './WorkloadView';
 
 interface BoardCanvasProps {
   boardId: string;
@@ -27,7 +28,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [board, setBoard] = useState<Board | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'timeline' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'timeline' | 'calendar' | 'workload'>('table');
   const [isAutomationOpen, setIsAutomationOpen] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -37,6 +38,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [socket, setSocket] = useState<any>(null);
+  const [personFilter, setPersonFilter] = useState<{ personKey: string; columnId: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -265,7 +267,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       const newGroups = board.groups?.map(g => g.id === groupId ? { ...g, name } : g) || [];
       setBoard({ ...board, groups: newGroups });
       
-      await updateGroup(board.id, groupId, { name });
+      await updateGroup(board.id, groupId, name);
     } catch (error) {
       console.error('Failed to update group', error);
       loadData();
@@ -302,6 +304,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       return sortConfig.direction === 'asc' 
         ? (valA > valB ? 1 : -1) 
         : (valA < valB ? 1 : -1);
+    });
+  };
+
+  const applyPersonFilter = (items: Item[]) => {
+    if (!personFilter) return items;
+    return items.filter((item) => {
+      const val = item.column_values?.find((cv) => cv.column_id === personFilter.columnId)?.value;
+      if (!val) return false;
+      const assignees = Array.isArray(val) ? val.map((v) => String(v)) : [String(val)];
+      return assignees.includes(personFilter.personKey);
     });
   };
 
@@ -367,6 +379,16 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
                 }`}
               >
                 <CalendarDays size={16} /> Calendar
+              </button>
+              <button 
+                onClick={() => setViewMode('workload')}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  viewMode === 'workload' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                <Users size={16} /> Workload
               </button>
             </div>
             
@@ -494,7 +516,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
                   key={group.id}
                   group={group}
                   columns={board.columns || []}
-                  items={getSortedItems(items.filter(i => i.group_id === group.id))}
+                  items={getSortedItems(applyPersonFilter(items.filter(i => i.group_id === group.id)))}
                   onCreateItem={() => handleCreateItem(group.id)}
                   onUpdateValue={handleUpdateValue}
                   onDeleteColumn={handleDeleteColumn}
@@ -515,7 +537,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
           {viewMode === 'kanban' && (
             <KanbanBoard 
               board={board} 
-              items={items} 
+              items={applyPersonFilter(items)} 
               onUpdateItem={handleUpdateValue} 
             />
           )}
@@ -532,6 +554,20 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
               items={items}
               onCreateItemForDate={handleCreateItemForDate}
               onSelectItem={setSelectedItem}
+            />
+          )}
+          {viewMode === 'workload' && (
+            <WorkloadView
+              board={board}
+              items={items}
+              onSelectPerson={(personKey, columnId) => {
+                if (!personKey) {
+                  setPersonFilter(null);
+                } else {
+                  setPersonFilter({ personKey, columnId });
+                }
+              }}
+              activePersonFilter={personFilter}
             />
           )}
     </div>
