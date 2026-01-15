@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Item, Update, Column, ActivityLog, File as ItemFile, TimeLog } from '@/types';
 import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile, fetchTimeLogs, startTimer, stopTimer } from '@/lib/api';
 import { X, Send, User, Trash2, Link as LinkIcon, FileText } from 'lucide-react';
@@ -31,12 +31,65 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  // Load updates on mount
-  useEffect(() => {
-    loadUpdates();
+  const loadUpdates = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchUpdates(item.id);
+      const enriched = user
+        ? data.map(u =>
+            !u.user && u.user_id === user.id
+              ? { ...u, user }
+              : u,
+          )
+        : data;
+      setUpdates(enriched);
+    } catch (error) {
+      console.error('Failed to load updates', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [item.id, user]);
+
+  const loadLogs = useCallback(async () => {
+    try {
+      setLogsLoading(true);
+      const data = await fetchItemActivityLogs(item.board_id, item.id);
+      setLogs(data);
+    } catch (error) {
+      console.error('Failed to load logs', error);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [item.board_id, item.id]);
+
+  const loadFiles = useCallback(async () => {
+    try {
+      setFilesLoading(true);
+      const data = await fetchFiles(item.id);
+      setFiles(data);
+    } catch (error) {
+      console.error('Failed to load files', error);
+    } finally {
+      setFilesLoading(false);
+    }
   }, [item.id]);
 
-  // Load logs when tab changes
+  const loadTimeLogs = useCallback(async () => {
+    try {
+      setTimeLoading(true);
+      const data = await fetchTimeLogs(item.id);
+      setTimeLogs(data);
+    } catch (error) {
+      console.error('Failed to load time logs', error);
+    } finally {
+      setTimeLoading(false);
+    }
+  }, [item.id]);
+
+  useEffect(() => {
+    loadUpdates();
+  }, [loadUpdates]);
+
   useEffect(() => {
     if (activeTab === 'log') {
       loadLogs();
@@ -47,7 +100,7 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     if (activeTab === 'time') {
       loadTimeLogs();
     }
-  }, [activeTab, item.id]);
+  }, [activeTab, loadLogs, loadFiles, loadTimeLogs]);
 
   useEffect(() => {
     if (!socket) return;
@@ -66,62 +119,7 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     return () => {
       socket.off('update.created', handleNewUpdate);
     };
-  }, [socket, item.id]);
-
-  const loadUpdates = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchUpdates(item.id);
-      const enriched = user
-        ? data.map(u =>
-            !u.user && u.user_id === user.id
-              ? { ...u, user }
-              : u,
-          )
-        : data;
-      setUpdates(enriched);
-    } catch (error) {
-      console.error('Failed to load updates', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadLogs = async () => {
-    try {
-      setLogsLoading(true);
-      const data = await fetchItemActivityLogs(item.board_id, item.id);
-      setLogs(data);
-    } catch (error) {
-      console.error('Failed to load logs', error);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
-  const loadFiles = async () => {
-    try {
-      setFilesLoading(true);
-      const data = await fetchFiles(item.id);
-      setFiles(data);
-    } catch (error) {
-      console.error('Failed to load files', error);
-    } finally {
-      setFilesLoading(false);
-    }
-  };
-
-  const loadTimeLogs = async () => {
-    try {
-      setTimeLoading(true);
-      const data = await fetchTimeLogs(item.id);
-      setTimeLogs(data);
-    } catch (error) {
-      console.error('Failed to load time logs', error);
-    } finally {
-      setTimeLoading(false);
-    }
-  };
+  }, [socket, item.id, user]);
 
   const handleSendUpdate = async () => {
     if (!newUpdateContent.trim() || !user) return;

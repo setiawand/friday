@@ -2,7 +2,7 @@
 
 import BoardList from "@/components/BoardList";
 import NotificationsPopover from "@/components/NotificationsPopover";
-import { Search, User, Zap, LayoutDashboard } from 'lucide-react';
+import { Search, User, Zap, LayoutDashboard, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -58,6 +58,16 @@ export default function Home() {
                   <LayoutDashboard size={18} />
                   Dashboards
                 </Link>
+
+                {(user.is_admin || user.email === 'admin@friday.app') && (
+                  <Link 
+                    href="/admin" 
+                    className="flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md font-medium text-sm transition-all"
+                  >
+                    <Shield size={18} />
+                    Admin
+                  </Link>
+                )}
               </div>
             </div>
             
@@ -86,10 +96,9 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome back, {user.name}! 👋</h1>
-          <p className="text-slate-500">Here's what's happening in your workspace today.</p>
+          <p className="text-slate-500">Here&apos;s what&apos;s happening in your workspace today.</p>
         </div>
 
         {/* Board List */}

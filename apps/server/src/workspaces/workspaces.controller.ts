@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Param } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { Workspace } from '../entities/workspace.entity';
 
@@ -14,5 +14,10 @@ export class WorkspacesController {
   @Post()
   createWorkspace(@Body() data: Partial<Workspace>) {
     return this.workspacesService.createWorkspace(data);
+  }
+
+  @Put(':id')
+  updateWorkspace(@Param('id') id: string, @Body() data: Partial<Workspace>) {
+    return this.workspacesService.updateWorkspace(id, data);
   }
 }

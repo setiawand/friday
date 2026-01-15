@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Check, X } from 'lucide-react';
 import { fetchNotifications, fetchUnreadCount, markNotificationAsRead, markAllNotificationsAsRead } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -25,41 +25,7 @@ export default function NotificationsPopover() {
   const [socket, setSocket] = useState<any>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!user) return;
-
-    loadNotifications();
-
-    // Socket Connection
-    const newSocket = io('http://localhost:3002');
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
-      newSocket.emit('joinUser', { userId: user.id });
-    });
-
-    newSocket.on('notification.created', (notification: Notification) => {
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-      
-      // Play sound?
-    });
-
-    // Close on click outside
-    const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-      newSocket.disconnect();
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [user]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!user) return;
     try {
       const [notifs, countData] = await Promise.all([
@@ -71,7 +37,37 @@ export default function NotificationsPopover() {
     } catch (error) {
       console.error('Failed to load notifications', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    loadNotifications();
+
+    const newSocket = io('http://localhost:3002');
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      newSocket.emit('joinUser', { userId: user.id });
+    });
+
+    newSocket.on('notification.created', (notification: Notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    });
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      newSocket.disconnect();
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [user, loadNotifications]);
 
   const handleMarkAsRead = async (id: string) => {
     try {

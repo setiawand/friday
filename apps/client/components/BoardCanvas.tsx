@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Board, Group, Item, Column, ColumnType } from '@/types';
 import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
 import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays, Users } from 'lucide-react';
@@ -39,6 +39,21 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [socket, setSocket] = useState<any>(null);
   const [personFilter, setPersonFilter] = useState<{ personKey: string; columnId: string } | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [boardData, itemsData] = await Promise.all([
+        fetchBoard(boardId),
+        fetchItems(boardId)
+      ]);
+      setBoard(boardData);
+      setItems(itemsData);
+    } catch (error) {
+      console.error('Failed to load board data', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [boardId]);
 
   useEffect(() => {
     loadData();
@@ -96,22 +111,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
     return () => {
       newSocket.disconnect();
     };
-  }, [boardId]);
-
-  const loadData = async () => {
-    try {
-      const [boardData, itemsData] = await Promise.all([
-        fetchBoard(boardId),
-        fetchItems(boardId)
-      ]);
-      setBoard(boardData);
-      setItems(itemsData);
-    } catch (error) {
-      console.error('Failed to load board data', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [boardId, loadData]);
 
   const handleCreateItem = async (groupId: string): Promise<Item | undefined> => {
     if (!board) return;

@@ -18,6 +18,9 @@ export class User {
   @Column({ default: '#6366f1' }) // Default indigo color
   color: string;
 
+  @Column({ default: false })
+  is_admin: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 }

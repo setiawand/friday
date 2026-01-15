@@ -15,6 +15,7 @@ import { DashboardsModule } from './dashboards/dashboards.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TimeLog } from './entities/time-log.entity';
 import { TimeLogsModule } from './time-logs/time-logs.module';
+import { AccountLogsModule } from './account-logs/account-logs.module';
 import { Board } from './entities/board.entity';
 import { Column } from './entities/column.entity';
 import { Group } from './entities/group.entity';
@@ -27,13 +28,14 @@ import { Update } from './entities/update.entity';
 import { User } from './entities/user.entity';
 import { File } from './entities/file.entity';
 import { Notification } from './entities/notification.entity';
+import { AccountLog } from './entities/account-log.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'friday.sqlite',
-      entities: [Board, Column, Group, Item, ColumnValue, Workspace, Automation, ActivityLog, Update, User, File, Notification, TimeLog],
+      entities: [Board, Column, Group, Item, ColumnValue, Workspace, Automation, ActivityLog, Update, User, File, Notification, TimeLog, AccountLog],
       synchronize: true, // Auto-create tables (dev only)
     }),
     EventEmitterModule.forRoot(),
@@ -50,6 +52,7 @@ import { Notification } from './entities/notification.entity';
     DashboardsModule,
     NotificationsModule,
     TimeLogsModule,
+    AccountLogsModule,
   ],
   controllers: [],
   providers: [],

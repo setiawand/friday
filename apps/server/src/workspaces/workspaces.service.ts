@@ -1,13 +1,15 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workspace } from '../entities/workspace.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class WorkspacesService implements OnModuleInit {
   constructor(
     @InjectRepository(Workspace)
     private workspaceRepo: Repository<Workspace>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async onModuleInit() {
@@ -27,7 +29,23 @@ export class WorkspacesService implements OnModuleInit {
       ...data,
       created_at: new Date(),
     });
-    return this.workspaceRepo.save(workspace);
+    const saved = await this.workspaceRepo.save(workspace);
+    this.eventEmitter.emit('workspace.created', saved);
+    return saved;
+  }
+
+  async updateWorkspace(id: string, data: Partial<Workspace>) {
+    const workspace = await this.workspaceRepo.findOne({ where: { id } });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+    const updated = {
+      ...workspace,
+      ...data,
+    };
+    const saved = await this.workspaceRepo.save(updated);
+    this.eventEmitter.emit('workspace.updated', saved);
+    return saved;
   }
 
   async getAllWorkspaces() {

@@ -11,6 +11,7 @@ export interface User {
   name: string;
   email: string;
   color: string;
+  is_admin?: boolean;
 }
 
 export interface Board {

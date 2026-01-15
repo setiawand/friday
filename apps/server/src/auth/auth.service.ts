@@ -1,10 +1,14 @@
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class AuthService {
-  constructor(private usersService: UsersService) {}
+  constructor(
+    private usersService: UsersService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
@@ -18,6 +22,7 @@ export class AuthService {
   async login(user: any) {
     // For simplicity, we'll just return the user object as a token for now
     // In production, use @nestjs/jwt
+    this.eventEmitter.emit('user.logged_in', user);
     return {
       access_token: 'mock-jwt-token', 
       user: user,
@@ -30,6 +35,7 @@ export class AuthService {
           throw new UnauthorizedException('User already exists');
       }
       const newUser = await this.usersService.create(userData);
+      this.eventEmitter.emit('user.registered', newUser);
       const { password, ...result } = newUser;
       return {
           access_token: 'mock-jwt-token',

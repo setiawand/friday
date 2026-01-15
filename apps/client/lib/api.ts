@@ -21,6 +21,20 @@ export async function createWorkspace(data: any) {
   return res.json();
 }
 
+export async function updateWorkspace(id: string, data: any) {
+  const res = await fetch(`${API_URL}/workspaces/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function fetchAuditLogs(limit: number = 100) {
+  const res = await fetch(`${API_URL}/admin/audit-logs?limit=${limit}`);
+  return res.json();
+}
+
 export async function createBoard(data: any) {
   const res = await fetch(`${API_URL}/boards`, {
     method: 'POST',

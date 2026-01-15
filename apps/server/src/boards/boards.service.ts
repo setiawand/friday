@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Board } from '../entities/board.entity';
 import { Column, ColumnType } from '../entities/column.entity';
 import { Group } from '../entities/group.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class BoardsService {
@@ -14,6 +15,7 @@ export class BoardsService {
     private columnRepo: Repository<Column>,
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async getAllBoards() {
@@ -51,6 +53,8 @@ export class BoardsService {
 
     // Create default group
     await this.createGroup(newBoard.id, { name: 'Group 1', position: 0 });
+
+    this.eventEmitter.emit('board.created', newBoard);
 
     // Reload to get relations (optional, but good for returning full object)
     return this.getBoardById(newBoard.id);

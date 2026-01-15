@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { X, Clock, Activity, User } from 'lucide-react';
 import { fetchActivityLogs } from '@/lib/api';
 
@@ -20,11 +20,7 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadLogs();
-  }, [boardId]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       const data = await fetchActivityLogs(boardId);
       setLogs(data);
@@ -33,7 +29,11 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
     } finally {
       setLoading(false);
     }
-  };
+  }, [boardId]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const formatAction = (action: string) => {
     return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -88,7 +88,7 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
                         <div className="text-sm text-slate-500 mt-1">
                           {log.entity_type === 'item' && log.details?.value && (
                              <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                               Changed to "{log.details.value}"
+                              Changed to &quot;{log.details.value}&quot;
                              </span>
                           )}
                           {log.entity_type === 'item' && log.action === 'create_item' && (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createAutomation, fetchAutomations } from '@/lib/api';
 import { Column, ColumnType } from '@/types';
 import { X, Plus, Zap } from 'lucide-react';
@@ -30,13 +30,7 @@ export default function AutomationModal({ boardId, columns, isOpen, onClose }: A
   const [targetValue, setTargetValue] = useState('');
   const [action, setAction] = useState('archive_item');
 
-  useEffect(() => {
-    if (isOpen) {
-      loadAutomations();
-    }
-  }, [isOpen, boardId]);
-
-  const loadAutomations = async () => {
+  const loadAutomations = useCallback(async () => {
     try {
       const data = await fetchAutomations(boardId);
       setAutomations(data);
@@ -45,7 +39,13 @@ export default function AutomationModal({ boardId, columns, isOpen, onClose }: A
     } finally {
       setLoading(false);
     }
-  };
+  }, [boardId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAutomations();
+    }
+  }, [isOpen, loadAutomations]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

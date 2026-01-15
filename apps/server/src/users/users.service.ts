@@ -19,7 +19,8 @@ export class UsersService implements OnModuleInit {
         email: 'admin@friday.app',
         password: 'admin',
         name: 'Admin',
-        color: '#EF4444', // Red
+        color: '#EF4444',
+        is_admin: true,
       });
       console.log('Default admin user created: admin@friday.app / admin');
     }

@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   color: string;
+  is_admin?: boolean;
 }
 
 interface AuthContextType {
