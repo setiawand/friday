@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 import { Board } from './board.entity';
+import { Team } from './team.entity';
 
 @Entity()
 export class Workspace {
@@ -20,6 +21,9 @@ export class Workspace {
 
   @OneToMany(() => Board, (board) => board.workspace)
   boards: Board[];
+
+  @OneToMany(() => Team, (team) => team.workspace)
+  teams: Team[];
 
   constructor(partial: Partial<Workspace>) {
     Object.assign(this, partial);

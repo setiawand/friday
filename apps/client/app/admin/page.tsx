@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Workspace } from '@/types';
 import { fetchWorkspaces, createWorkspace, fetchAuditLogs, updateWorkspace } from '@/lib/api';
+import Link from 'next/link';
 
 interface AuditLog {
   id: string;
@@ -113,6 +114,12 @@ export default function AdminPage() {
               Organization management and account-level audit logs.
             </p>
           </div>
+          <Link
+            href="/"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            Back to Home
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

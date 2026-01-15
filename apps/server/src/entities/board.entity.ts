@@ -3,6 +3,7 @@ import { Workspace } from './workspace.entity';
 import { Group } from './group.entity';
 import { Item } from './item.entity';
 import { Column as BoardColumn } from './column.entity';
+import { BoardMember } from './board-member.entity';
 
 @Entity()
 export class Board {
@@ -39,6 +40,9 @@ export class Board {
 
   @OneToMany(() => BoardColumn, (column) => column.board)
   columns: BoardColumn[];
+
+  @OneToMany(() => BoardMember, (member) => member.board)
+  members: BoardMember[];
 
   constructor(partial: Partial<Board>) {
     Object.assign(this, partial);

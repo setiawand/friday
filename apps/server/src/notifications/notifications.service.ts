@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Notification, NotificationType } from '../entities/notification.entity';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { UsersService } from '../users/users.service';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class NotificationsService {
@@ -12,6 +13,7 @@ export class NotificationsService {
     private notificationRepo: Repository<Notification>,
     private eventEmitter: EventEmitter2,
     private usersService: UsersService,
+    private emailService: EmailService,
   ) {}
 
   @OnEvent('update.created')
@@ -36,6 +38,8 @@ export class NotificationsService {
       );
     });
 
+    const actor = user_id ? await this.usersService.findById(user_id) : null;
+
     for (const user of mentionedUsers) {
       if (user.id === user_id) continue;
 
@@ -47,6 +51,13 @@ export class NotificationsService {
         entity_type: 'item',
         entity_id: item_id,
       });
+
+      if (user.email) {
+        const subject = 'You were mentioned in Friday';
+        const actorName = actor?.name || 'Someone';
+        const body = `${actorName} mentioned you in an update.`;
+        await this.emailService.sendEmail(user.email, subject, body);
+      }
     }
   }
 

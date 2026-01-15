@@ -29,13 +29,17 @@ import { User } from './entities/user.entity';
 import { File } from './entities/file.entity';
 import { Notification } from './entities/notification.entity';
 import { AccountLog } from './entities/account-log.entity';
+import { Team } from './entities/team.entity';
+import { TeamMember } from './entities/team-member.entity';
+import { BoardMember } from './entities/board-member.entity';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'friday.sqlite',
-      entities: [Board, Column, Group, Item, ColumnValue, Workspace, Automation, ActivityLog, Update, User, File, Notification, TimeLog, AccountLog],
+      entities: [Board, Column, Group, Item, ColumnValue, Workspace, Automation, ActivityLog, Update, User, File, Notification, TimeLog, AccountLog, Team, TeamMember, BoardMember],
       synchronize: true, // Auto-create tables (dev only)
     }),
     EventEmitterModule.forRoot(),
@@ -53,6 +57,7 @@ import { AccountLog } from './entities/account-log.entity';
     NotificationsModule,
     TimeLogsModule,
     AccountLogsModule,
+    TeamsModule,
   ],
   controllers: [],
   providers: [],

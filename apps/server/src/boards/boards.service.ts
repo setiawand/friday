@@ -5,6 +5,7 @@ import { Board } from '../entities/board.entity';
 import { Column, ColumnType } from '../entities/column.entity';
 import { Group } from '../entities/group.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BoardPermissionsService } from './board-permissions.service';
 
 @Injectable()
 export class BoardsService {
@@ -16,6 +17,7 @@ export class BoardsService {
     @InjectRepository(Group)
     private groupRepo: Repository<Group>,
     private eventEmitter: EventEmitter2,
+    private boardPermissions: BoardPermissionsService,
   ) {}
 
   async getAllBoards() {
@@ -44,6 +46,10 @@ export class BoardsService {
     });
     
     await this.boardRepo.save(newBoard);
+
+    if (newBoard.created_by) {
+      await this.boardPermissions.ensureMember(newBoard.id, newBoard.created_by, 'owner');
+    }
 
     // Create default columns
     await this.createColumn(newBoard.id, { title: 'Item', type: ColumnType.TEXT, position: 0 });
