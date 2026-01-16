@@ -107,6 +107,22 @@ export class ActivityLogsService {
         },
       });
     }
+
+    if (payload.changes.task_type) {
+      await this.createLog({
+        board_id: payload.board_id,
+        item_id: payload.id,
+        user_id: payload.user_id || 'system',
+        action: 'update_task_type',
+        entity_type: 'item',
+        entity_id: payload.id,
+        details: {
+          field: 'task_type',
+          previous: payload.changes.task_type.previous,
+          current: payload.changes.task_type.current,
+        },
+      });
+    }
   }
 
   private async createLog(data: Partial<ActivityLog>) {

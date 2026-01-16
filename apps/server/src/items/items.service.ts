@@ -62,10 +62,18 @@ export class ItemsService {
       };
     }
 
+    if (Object.prototype.hasOwnProperty.call(data, 'task_type')) {
+      changes.task_type = {
+        previous: existing?.task_type ?? null,
+        current: updatedItem.task_type,
+      };
+    }
+
     this.eventEmitter.emit('item.updated', {
       board_id: updatedItem.board_id,
       id: updatedItem.id,
       description: updatedItem.description,
+      task_type: updatedItem.task_type,
       user_id: userId || updatedItem.created_by,
       changes,
     });

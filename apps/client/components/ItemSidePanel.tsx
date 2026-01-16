@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Item, Update, Column, ActivityLog, File as ItemFile, TimeLog, User as AppUser } from '@/types';
+import { ColumnType } from '@/types';
 import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile, fetchTimeLogs, startTimer, stopTimer, updateItem } from '@/lib/api';
 import { X, Send, User, Trash2, Link as LinkIcon, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,12 +31,14 @@ export default function ItemSidePanel({ item, columns, onClose, socket, users }:
   const [newFileName, setNewFileName] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
   const [description, setDescription] = useState(item.description || '');
+  const [taskType, setTaskType] = useState<string | null>(item.task_type || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     setDescription(item.description || '');
-  }, [item.description]);
+    setTaskType(item.task_type || null);
+  }, [item.description, item.task_type]);
 
   const handleSaveDescription = async () => {
     if (description === item.description) return;
@@ -44,6 +47,29 @@ export default function ItemSidePanel({ item, columns, onClose, socket, users }:
       await updateItem(item.id, { description, user_id: user.id });
     } catch (error) {
       console.error('Failed to save description', error);
+    }
+  };
+
+  const TASK_TYPES: { value: string; label: string }[] = [
+    { value: 'feature', label: 'Feature' },
+    { value: 'bugfix', label: 'Bug Fix' },
+    { value: 'chore', label: 'Chore' },
+    { value: 'research', label: 'Research' },
+    { value: 'meeting', label: 'Meeting' },
+  ];
+
+  const handleChangeTaskType = async (value: string) => {
+    if (!user) return;
+    const next = value || null;
+    if (next === (item.task_type || null)) {
+      setTaskType(next);
+      return;
+    }
+    setTaskType(next);
+    try {
+      await updateItem(item.id, { task_type: next, user_id: user.id });
+    } catch (error) {
+      console.error('Failed to save task type', error);
     }
   };
 
@@ -195,10 +221,81 @@ export default function ItemSidePanel({ item, columns, onClose, socket, users }:
       case 'update_value': 
         const col = columns.find(c => c.id === log.details?.column_id);
         const val = log.details?.value;
-        // Simple value formatting
-        let displayValue = typeof val === 'object' ? JSON.stringify(val) : String(val);
-        if (displayValue.length > 30) displayValue = displayValue.substring(0, 30) + '...';
-        return `Updated ${col?.title || 'column'} to "${displayValue}"`;
+        const prev = log.details?.previous_value;
+
+        if (col?.type === ColumnType.PERSON) {
+          const getUserName = (id: any) => {
+            if (!id) return '';
+            const match = users.find(u => u.id === String(id));
+            return match?.name || '';
+          };
+          const newName = getUserName(val);
+          const prevName = getUserName(prev);
+          const label = col.title || 'Assignee';
+
+          if (!prevName && !newName) {
+            return `Updated ${label}`;
+          }
+          if (!prevName) {
+            return `Updated ${label} to "${newName || 'Unassigned'}"`;
+          }
+          if (!newName) {
+            return `Cleared ${label} (was "${prevName}")`;
+          }
+          return `Changed ${label} from "${prevName}" to "${newName}"`;
+        }
+
+        let newValue = val === null || val === undefined ? '' : String(val);
+        let prevValue = prev === null || prev === undefined ? '' : String(prev);
+        if (newValue.length > 30) newValue = newValue.substring(0, 30) + '...';
+        if (prevValue.length > 30) prevValue = prevValue.substring(0, 30) + '...';
+        if (prevValue) {
+          return `Changed ${col?.title || 'column'} from "${prevValue}" to "${newValue || 'empty'}"`;
+        }
+        return `Updated ${col?.title || 'column'} to "${newValue || 'empty'}"`;
+      case 'update_description':
+        const prevDescRaw = log.details?.previous ?? '';
+        const newDescRaw = log.details?.current ?? '';
+        const normalize = (v: any) =>
+          (v ?? '')
+            .toString()
+            .replace(/\s+/g, ' ')
+            .trim();
+        let prevDesc = normalize(prevDescRaw);
+        let newDesc = normalize(newDescRaw);
+        const maxLen = 40;
+        if (prevDesc.length > maxLen) prevDesc = prevDesc.substring(0, maxLen) + '...';
+        if (newDesc.length > maxLen) newDesc = newDesc.substring(0, maxLen) + '...';
+        if (!prevDesc && !newDesc) {
+          return 'Updated the description';
+        }
+        if (!prevDesc) {
+          return `Set description to "${newDesc}"`;
+        }
+        if (!newDesc) {
+          return `Cleared description (was "${prevDesc}")`;
+        }
+        return `Changed description: "${prevDesc}" → "${newDesc}"`;
+      case 'update_task_type':
+        const prevTypeKey = log.details?.previous ?? null;
+        const newTypeKey = log.details?.current ?? null;
+        const labelFor = (key: string | null) => {
+          if (!key) return '';
+          const match = TASK_TYPES.find(t => t.value === key);
+          return match?.label || key;
+        };
+        const prevTypeLabel = labelFor(prevTypeKey);
+        const newTypeLabel = labelFor(newTypeKey);
+        if (!prevTypeLabel && !newTypeLabel) {
+          return 'Updated task type';
+        }
+        if (!prevTypeLabel) {
+          return `Set task type to "${newTypeLabel}"`;
+        }
+        if (!newTypeLabel) {
+          return `Cleared task type (was "${prevTypeLabel}")`;
+        }
+        return `Changed task type: "${prevTypeLabel}" → "${newTypeLabel}"`;
       case 'archive_item': return 'Archived this item';
       default: return log.action.replace(/_/g, ' ');
     }
@@ -275,18 +372,37 @@ export default function ItemSidePanel({ item, columns, onClose, socket, users }:
         </button>
       </div>
 
-      {/* Description */}
-      <div className="px-6 py-4 bg-white border-b border-slate-100">
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-          Description
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onBlur={handleSaveDescription}
-          placeholder="Add a detailed description..."
-          className="w-full min-h-[60px] p-2 text-sm text-slate-700 placeholder:text-slate-400 border border-transparent hover:border-slate-200 focus:border-blue-500 rounded-md focus:outline-none resize-none transition-all"
-        />
+      {/* Description + Task Type */}
+      <div className="px-6 py-4 bg-white border-b border-slate-100 space-y-4">
+        <div>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleSaveDescription}
+            placeholder="Add a detailed description..."
+            className="w-full min-h-[60px] p-2 text-sm text-slate-700 placeholder:text-slate-400 border border-transparent hover:border-slate-200 focus:border-blue-500 rounded-md focus:outline-none resize-none transition-all"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
+            Task Type
+          </label>
+          <select
+            value={taskType || ''}
+            onChange={(e) => handleChangeTaskType(e.target.value)}
+            className="w-full p-2 text-sm text-slate-700 border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 bg-white"
+          >
+            <option value="">Custom / Not set</option>
+            {TASK_TYPES.map(t => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Tabs */}

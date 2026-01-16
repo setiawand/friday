@@ -31,6 +31,9 @@ export class Item {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ nullable: true })
+  task_type: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

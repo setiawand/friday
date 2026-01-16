@@ -40,6 +40,7 @@ export interface Item {
   position: number;
   created_by: string;
   description?: string;
+  task_type?: string | null;
   created_at: string;
   updated_at: string;
   archived_at?: string;

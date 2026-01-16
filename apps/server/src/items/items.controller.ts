@@ -18,11 +18,18 @@ export class ItemsController {
   @Patch(':id')
   updateItem(
     @Param('id') id: string,
-    @Body() body: { description?: string; user_id?: string },
+    @Body() body: { description?: string; task_type?: string | null; user_id?: string },
   ) {
+    const data: any = {};
+    if (body.description !== undefined) {
+      data.description = body.description;
+    }
+    if (body.task_type !== undefined) {
+      data.task_type = body.task_type;
+    }
     return this.itemsService.updateItem(
       id,
-      { description: body.description },
+      data,
       body.user_id,
     );
   }
