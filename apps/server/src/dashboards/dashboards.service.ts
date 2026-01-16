@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { Column as BoardColumn, ColumnType } from '../entities/column.entity';
 import { ColumnValue } from '../entities/column-value.entity';
 import { Board } from '../entities/board.entity';
+import { Item } from '../entities/item.entity';
 
 @Injectable()
 export class DashboardsService {
@@ -14,52 +15,73 @@ export class DashboardsService {
     private columnValueRepo: Repository<ColumnValue>,
     @InjectRepository(Board)
     private boardRepo: Repository<Board>,
+    @InjectRepository(Item)
+    private itemRepo: Repository<Item>,
   ) {}
 
   async getStats() {
-    // 1. Get all status columns
+    // Status distribution
     const statusColumns = await this.columnRepo.find({
-      where: { type: ColumnType.STATUS }
+      where: { type: ColumnType.STATUS },
     });
 
-    if (statusColumns.length === 0) {
-      return { 
-        statusCounts: {}, 
-        totalItems: 0,
-        totalBoards: await this.boardRepo.count()
-      };
-    }
-
-    const columnIds = statusColumns.map(c => c.id);
-
-    // 2. Get all values for these columns
-    // We only care about values that are not null/undefined
-    const values = await this.columnValueRepo.find({
-      where: { column_id: In(columnIds) }
-    });
-
-    // 3. Aggregate
-    const statusCounts: Record<string, number> = {};
+    let statusCounts: Record<string, number> = {};
     let totalItems = 0;
 
-    values.forEach(v => {
-      // The value is stored as JSONB. For status columns, it's a string.
-      // But sometimes it might be null or empty string.
-      const val = v.value;
-      
-      if (val && typeof val === 'string') {
-        statusCounts[val] = (statusCounts[val] || 0) + 1;
-        totalItems++;
+    if (statusColumns.length > 0) {
+      const columnIds = statusColumns.map((c) => c.id);
+
+      const values = await this.columnValueRepo.find({
+        where: { column_id: In(columnIds) },
+      });
+
+      values.forEach((v) => {
+        const val = v.value;
+
+        if (val && typeof val === 'string') {
+          statusCounts[val] = (statusCounts[val] || 0) + 1;
+          totalItems++;
+        }
+      });
+    }
+
+    // Task type distribution
+    const items = await this.itemRepo.find();
+    const taskTypeCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      if (item.task_type) {
+        taskTypeCounts[item.task_type] = (taskTypeCounts[item.task_type] || 0) + 1;
       }
     });
 
-    // 4. Also get total boards count
+    // Workload by person (assignee)
+    const personColumns = await this.columnRepo.find({
+      where: { type: ColumnType.PERSON },
+    });
+    const personWorkload: Record<string, number> = {};
+
+    if (personColumns.length > 0) {
+      const personColumnIds = personColumns.map((c) => c.id);
+      const personValues = await this.columnValueRepo.find({
+        where: { column_id: In(personColumnIds) },
+      });
+
+      personValues.forEach((v) => {
+        const val = v.value;
+        if (val && typeof val === 'string') {
+          personWorkload[val] = (personWorkload[val] || 0) + 1;
+        }
+      });
+    }
+
     const totalBoards = await this.boardRepo.count();
 
     return {
       statusCounts,
       totalItems,
-      totalBoards
+      totalBoards,
+      taskTypeCounts,
+      personWorkload,
     };
   }
 }

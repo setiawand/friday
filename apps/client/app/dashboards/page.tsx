@@ -1,18 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchDashboardStats } from '@/lib/api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { fetchDashboardStats, fetchUsers } from '@/lib/api';
+import type { User } from '@/types';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ArrowLeft, LayoutDashboard, CheckCircle, List, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    fetchDashboardStats()
-      .then(setStats)
+    Promise.all([fetchDashboardStats(), fetchUsers()])
+      .then(([statsResult, usersResult]) => {
+        setStats(statsResult);
+        setUsers(usersResult);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -32,6 +37,33 @@ export default function DashboardPage() {
     
   // Sort by value desc
   data.sort((a, b) => (b.value as number) - (a.value as number));
+
+  const TASK_TYPE_LABELS: Record<string, string> = {
+    feature: 'Feature',
+    bugfix: 'Bug Fix',
+    chore: 'Chore',
+    research: 'Research',
+    meeting: 'Meeting',
+  };
+
+  const workloadData = stats?.taskTypeCounts
+    ? Object.entries(stats.taskTypeCounts).map(([key, value]) => ({
+        name: TASK_TYPE_LABELS[key] || key,
+        value,
+      }))
+    : [];
+
+  workloadData.sort((a, b) => (b.value as number) - (a.value as number));
+
+  const personWorkloadData = stats?.personWorkload
+    ? Object.entries(stats.personWorkload).map(([userId, value]) => {
+        const match = users.find((u) => u.id === userId);
+        const name = match ? match.name : `User ${userId.slice(0, 6)}`;
+        return { name, value };
+      })
+    : [];
+
+  personWorkloadData.sort((a, b) => (b.value as number) - (a.value as number));
 
   const getStatusColor = (name: string) => {
       switch (name) {
@@ -90,31 +122,71 @@ export default function DashboardPage() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]">
-                <h3 className="text-lg font-semibold text-slate-900 mb-6">Items by Status</h3>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                        <Tooltip 
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                            cursor={{ fill: 'transparent' }}
-                        />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                            {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+              <h3 className="text-lg font-semibold text-slate-900 mb-6">Items by Status</h3>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    cursor={{ fill: 'transparent' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
             
-             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px] flex items-center justify-center text-slate-400">
-                <div className="text-center">
-                    <p className="mb-2">More charts coming soon...</p>
-                    <p className="text-sm">Workload, Timeline, etc.</p>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]">
+              <h3 className="text-lg font-semibold text-slate-900 mb-6">Items by Task Type</h3>
+              {workloadData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                  No task types set yet. Assign task types to items to see workload.
                 </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={workloadData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                    <XAxis type="number" />
+                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      cursor={{ fill: 'transparent' }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#4f46e5" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
+        </div>
+
+        {/* Workload by Person */}
+        <div className="mt-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]">
+            <h3 className="text-lg font-semibold text-slate-900 mb-6">Workload by Person</h3>
+            {personWorkloadData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                No assignees yet. Set assignees on items to see workload by person.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={personWorkloadData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    cursor={{ fill: 'transparent' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#0f766e" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
       </div>
     </div>

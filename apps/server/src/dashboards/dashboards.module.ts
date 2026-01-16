@@ -5,10 +5,11 @@ import { DashboardsService } from './dashboards.service';
 import { Column } from '../entities/column.entity';
 import { ColumnValue } from '../entities/column-value.entity';
 import { Board } from '../entities/board.entity';
+import { Item } from '../entities/item.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Column, ColumnValue, Board]),
+    TypeOrmModule.forFeature([Column, ColumnValue, Board, Item]),
   ],
   controllers: [DashboardsController],
   providers: [DashboardsService],
