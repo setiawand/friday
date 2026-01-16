@@ -40,6 +40,16 @@ export class Item {
   @OneToMany(() => ColumnValue, (columnValue) => columnValue.item, { cascade: true })
   column_values: ColumnValue[];
 
+  @Column({ nullable: true })
+  parent_item_id: string | null;
+
+  @ManyToOne(() => Item, (item) => item.subitems)
+  @JoinColumn({ name: 'parent_item_id' })
+  parent: Item;
+
+  @OneToMany(() => Item, (item) => item.parent)
+  subitems: Item[];
+
   constructor(partial: Partial<Item>) {
     Object.assign(this, partial);
   }

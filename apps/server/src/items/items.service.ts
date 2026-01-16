@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Item } from '../entities/item.entity';
 import { ColumnValue } from '../entities/column-value.entity';
+import { ItemDependency } from '../entities/item-dependency.entity';
 
 @Injectable()
 export class ItemsService {
@@ -12,6 +13,8 @@ export class ItemsService {
     private itemRepo: Repository<Item>,
     @InjectRepository(ColumnValue)
     private columnValueRepo: Repository<ColumnValue>,
+    @InjectRepository(ItemDependency)
+    private dependencyRepo: Repository<ItemDependency>,
     private eventEmitter: EventEmitter2
   ) {}
 
@@ -39,6 +42,35 @@ export class ItemsService {
     this.eventEmitter.emit('item.created', newItem);
     
     return newItem;
+  }
+
+  async getSubitems(parentItemId: string) {
+    return this.itemRepo.find({
+      where: { parent_item_id: parentItemId },
+      relations: ['column_values'],
+      order: { created_at: 'ASC' },
+    });
+  }
+
+  async getDependencies(itemId: string) {
+    return this.dependencyRepo.find({
+      where: [{ from_item_id: itemId }, { to_item_id: itemId }],
+      order: { created_at: 'ASC' },
+    });
+  }
+
+  async addDependency(fromItemId: string, toItemId: string, type: string = 'blocks') {
+    const dep = this.dependencyRepo.create({
+      from_item_id: fromItemId,
+      to_item_id: toItemId,
+      type,
+    });
+    return this.dependencyRepo.save(dep);
+  }
+
+  async removeDependency(depId: string) {
+    await this.dependencyRepo.delete(depId);
+    return { success: true };
   }
 
   async updateColumnValue(itemId: string, columnId: string, value: any) {

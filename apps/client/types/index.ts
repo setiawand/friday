@@ -43,6 +43,7 @@ export interface Item {
   updated_at: string;
   archived_at?: string;
   column_values?: ColumnValue[];
+  parent_item_id?: string | null;
 }
 
 export enum ColumnType {
@@ -115,4 +116,12 @@ export interface TimeLog {
   is_running: boolean;
   created_at: string;
   user?: User;
+}
+
+export interface ItemDependency {
+  id: string;
+  from_item_id: string;
+  to_item_id: string;
+  type: string;
+  created_at: string;
 }

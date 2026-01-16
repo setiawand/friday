@@ -128,6 +128,31 @@ export async function deleteItem(itemId: string) {
   });
 }
 
+export async function fetchSubitems(itemId: string) {
+  const res = await fetch(`${API_URL}/items/${itemId}/subitems`);
+  return res.json();
+}
+
+export async function fetchDependencies(itemId: string) {
+  const res = await fetch(`${API_URL}/items/${itemId}/dependencies`);
+  return res.json();
+}
+
+export async function createDependency(itemId: string, targetItemId: string, type: string = 'blocks') {
+  const res = await fetch(`${API_URL}/items/${itemId}/dependencies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_item_id: targetItemId, type }),
+  });
+  return res.json();
+}
+
+export async function deleteDependency(itemId: string, dependencyId: string) {
+  await fetch(`${API_URL}/items/${itemId}/dependencies/${dependencyId}`, {
+    method: 'DELETE',
+  });
+}
+
 // Activity Logs
 export async function fetchItemActivityLogs(boardId: string, itemId: string) {
   const res = await fetch(`${API_URL}/boards/${boardId}/activity-logs/items/${itemId}`);

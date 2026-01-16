@@ -27,4 +27,27 @@ export class ItemsController {
   deleteItem(@Param('id') itemId: string) {
     return this.itemsService.deleteItem(itemId);
   }
+
+  @Get(':id/subitems')
+  getSubitems(@Param('id') itemId: string) {
+    return this.itemsService.getSubitems(itemId);
+  }
+
+  @Get(':id/dependencies')
+  getDependencies(@Param('id') itemId: string) {
+    return this.itemsService.getDependencies(itemId);
+  }
+
+  @Post(':id/dependencies')
+  addDependency(
+    @Param('id') itemId: string,
+    @Body() body: { target_item_id: string; type?: string },
+  ) {
+    return this.itemsService.addDependency(itemId, body.target_item_id, body.type);
+  }
+
+  @Delete(':id/dependencies/:depId')
+  removeDependency(@Param('depId') depId: string) {
+    return this.itemsService.removeDependency(depId);
+  }
 }
