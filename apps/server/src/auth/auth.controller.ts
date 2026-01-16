@@ -1,5 +1,5 @@
 
-import { Controller, Post, Body, UnauthorizedException, Get } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, Get, Patch, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 
@@ -27,5 +27,13 @@ export class AuthController {
   @Get('users')
   async getAllUsers() {
       return this.usersService.findAll();
+  }
+
+  @Patch('users/:id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() body: { is_admin?: boolean; name?: string; color?: string },
+  ) {
+    return this.usersService.update(id, body);
   }
 }

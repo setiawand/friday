@@ -47,13 +47,14 @@ export class ActivityLogsService {
     await this.createLog({
       board_id: payload.board_id,
       item_id: payload.item_id,
-      user_id: 'user-1', // Placeholder
+      user_id: payload.user_id || 'system',
       action: 'update_value',
       entity_type: 'item',
       entity_id: payload.item_id,
       details: {
         column_id: payload.column_id,
         value: payload.value,
+        previous_value: payload.previous_value,
         is_new: payload.is_new
       }
     });
@@ -64,7 +65,7 @@ export class ActivityLogsService {
     await this.createLog({
       board_id: item.board_id,
       item_id: item.id,
-      user_id: 'user-1',
+      user_id: item.user_id || 'system',
       action: 'archive_item',
       entity_type: 'item',
       entity_id: item.id,
@@ -77,12 +78,35 @@ export class ActivityLogsService {
      await this.createLog({
       board_id: payload.board_id,
       item_id: payload.id,
-      user_id: 'user-1',
+      user_id: payload.user_id || 'system',
       action: 'delete_item',
       entity_type: 'item',
       entity_id: payload.id,
       details: {}
     });
+  }
+
+  @OnEvent('item.updated')
+  async handleItemUpdated(payload: any) {
+    if (!payload.changes) {
+      return;
+    }
+
+    if (payload.changes.description) {
+      await this.createLog({
+        board_id: payload.board_id,
+        item_id: payload.id,
+        user_id: payload.user_id || 'system',
+        action: 'update_description',
+        entity_type: 'item',
+        entity_id: payload.id,
+        details: {
+          field: 'description',
+          previous: payload.changes.description.previous,
+          current: payload.changes.description.current,
+        },
+      });
+    }
   }
 
   private async createLog(data: Partial<ActivityLog>) {

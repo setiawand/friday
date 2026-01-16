@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Workspace } from '@/types';
-import { fetchWorkspaces, createWorkspace, fetchAuditLogs, updateWorkspace } from '@/lib/api';
+import { Workspace, User } from '@/types';
+import { fetchWorkspaces, createWorkspace, fetchAuditLogs, updateWorkspace, fetchUsers, updateUser, register } from '@/lib/api';
 import Link from 'next/link';
 
 interface AuditLog {
@@ -25,6 +25,12 @@ export default function AdminPage() {
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [newOrgName, setNewOrgName] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
@@ -38,6 +44,7 @@ export default function AdminPage() {
       }
       loadWorkspaces();
       loadLogs();
+      loadUsers();
     }
   }, [user, isLoading, router]);
 
@@ -93,6 +100,48 @@ export default function AdminPage() {
       loadLogs();
     } catch (e) {
       console.error('Failed to update workspace', e);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      const data = await fetchUsers();
+      setUsers(data);
+    } catch (e) {
+      console.error('Failed to load users', e);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleToggleAdmin = async (target: User) => {
+    try {
+      const updated = await updateUser(target.id, { is_admin: !target.is_admin });
+      setUsers(prev => prev.map(u => (u.id === target.id ? updated : u)));
+    } catch (e) {
+      console.error('Failed to update user', e);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) return;
+    try {
+      setCreatingUser(true);
+      await register({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword,
+      });
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      loadUsers();
+    } catch (err) {
+      console.error('Failed to create user', err);
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -214,6 +263,83 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">
+            Users & Roles
+          </h2>
+          <form onSubmit={handleCreateUser} className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input
+              type="text"
+              placeholder="Full name"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              value={newUserName}
+              onChange={(e) => setNewUserName(e.target.value)}
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Temporary password"
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              value={newUserPassword}
+              onChange={(e) => setNewUserPassword(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={
+                !newUserName.trim() ||
+                !newUserEmail.trim() ||
+                !newUserPassword.trim() ||
+                creatingUser
+              }
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {creatingUser ? 'Creating...' : 'Create user'}
+            </button>
+          </form>
+          {loadingUsers ? (
+            <div className="text-sm text-slate-400">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="text-sm text-slate-400">No users yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {users.map(u => (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 bg-slate-50"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {u.name} {u.id === user.id ? '(you)' : ''}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {u.email}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded-full border border-slate-300 text-slate-700 bg-white">
+                      {u.is_admin ? 'Admin' : 'Member'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAdmin(u)}
+                      disabled={u.id === user.id}
+                      className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                    >
+                      {u.is_admin ? 'Revoke admin' : 'Make admin'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

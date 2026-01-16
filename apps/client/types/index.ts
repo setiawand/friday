@@ -39,6 +39,7 @@ export interface Item {
   group_id: string;
   position: number;
   created_by: string;
+  description?: string;
   created_at: string;
   updated_at: string;
   archived_at?: string;

@@ -42,4 +42,10 @@ export class UsersService implements OnModuleInit {
   async findAll() {
       return this.userRepo.find();
   }
+
+  async update(id: string, data: Partial<User>): Promise<User> {
+    await this.userRepo.update(id, data);
+    const updated = await this.userRepo.findOne({ where: { id } });
+    return updated as User;
+  }
 }

@@ -15,17 +15,32 @@ export class ItemsController {
     return this.itemsService.createItem(body);
   }
 
+  @Patch(':id')
+  updateItem(
+    @Param('id') id: string,
+    @Body() body: { description?: string; user_id?: string },
+  ) {
+    return this.itemsService.updateItem(
+      id,
+      { description: body.description },
+      body.user_id,
+    );
+  }
+
   @Patch(':id/values')
   updateColumnValue(
     @Param('id') itemId: string,
-    @Body() body: { column_id: string; value: any },
+    @Body() body: { column_id: string; value: any; user_id?: string },
   ) {
-    return this.itemsService.updateColumnValue(itemId, body.column_id, body.value);
+    return this.itemsService.updateColumnValue(itemId, body.column_id, body.value, body.user_id);
   }
 
   @Delete(':id')
-  deleteItem(@Param('id') itemId: string) {
-    return this.itemsService.deleteItem(itemId);
+  deleteItem(
+    @Param('id') itemId: string,
+    @Body() body: { user_id?: string },
+  ) {
+    return this.itemsService.deleteItem(itemId, body?.user_id);
   }
 
   @Get(':id/subitems')

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Board, Item, Column, ColumnType } from '@/types';
+import { Board, Item, Column, ColumnType, User } from '@/types';
 
 interface WorkloadViewProps {
   board: Board;
@@ -11,6 +11,7 @@ interface WorkloadViewProps {
     personKey: string;
     columnId: string;
   } | null;
+  users?: User[];
 }
 
 interface PersonWorkload {
@@ -96,7 +97,7 @@ function getWeekKey(date: Date): WeekBucket {
   return { key, label, start: stripToDate(monday), end: stripToDate(sunday) };
 }
 
-export default function WorkloadView({ board, items, onSelectPerson, activePersonFilter }: WorkloadViewProps) {
+export default function WorkloadView({ board, items, onSelectPerson, activePersonFilter, users }: WorkloadViewProps) {
   const personColumns = getPersonColumns(board.columns);
   const dateColumns = getDateColumns(board.columns);
   const statusColumns = getStatusColumns(board.columns);
@@ -149,6 +150,13 @@ export default function WorkloadView({ board, items, onSelectPerson, activePerso
     const weeksMap: Record<string, WeekBucket> = {};
     let unassigned = 0;
 
+    const userMap: Record<string, User> = {};
+    if (users) {
+      users.forEach(u => {
+        userMap[u.id] = u;
+      });
+    }
+
     items.forEach((item) => {
       if (effectiveStatusColumnId && statusFilterValue !== 'all') {
         const statusVal = item.column_values?.find((cv) => cv.column_id === effectiveStatusColumnId)?.value;
@@ -180,11 +188,22 @@ export default function WorkloadView({ board, items, onSelectPerson, activePerso
 
       assignees.forEach((a) => {
         const key = a || 'Unassigned';
+        let label = a || 'Unassigned';
+        let color = '#4f46e5';
+        if (a && users && users.length > 0) {
+          const byId = userMap[a];
+          const byNameOrEmail = users.find(u => u.name === a || u.email === a);
+          const user = byId || byNameOrEmail;
+          if (user) {
+            label = user.name;
+            color = user.color;
+          }
+        }
         if (!counts[key]) {
           counts[key] = {
             key,
-            label: a || 'Unassigned',
-            color: '#4f46e5',
+            label,
+            color,
             count: 0,
             byWeek: {},
           };
@@ -206,6 +225,7 @@ export default function WorkloadView({ board, items, onSelectPerson, activePerso
     effectiveDateColumnId,
     effectiveStatusColumnId,
     statusFilterValue,
+    users,
   ]);
 
   if (personColumns.length === 0) {

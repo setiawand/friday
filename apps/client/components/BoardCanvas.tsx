@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Board, Group, Item, Column, ColumnType } from '@/types';
-import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem } from '@/lib/api';
+import { Board, Group, Item, Column, ColumnType, User } from '@/types';
+import { fetchItems, createItem, updateColumnValue, fetchBoard, createColumn, deleteColumn, reorderColumns, createGroup, updateGroup, deleteGroup, deleteItem, fetchUsers } from '@/lib/api';
 import { Plus, LayoutGrid, List, Zap, MoreHorizontal, Trash2, GripVertical, ArrowUpDown, ArrowUp, ArrowDown, Settings, ChevronDown, ArrowLeft, X, Activity, MessageSquare, CalendarDays, Users } from 'lucide-react';
 import Link from 'next/link';
 import KanbanBoard from './KanbanBoard';
@@ -14,6 +14,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import TimelineView from './TimelineView';
 import CalendarView from './CalendarView';
 import WorkloadView from './WorkloadView';
+import { useAuth } from '@/context/AuthContext';
 
 interface BoardCanvasProps {
   boardId: string;
@@ -39,6 +40,9 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [socket, setSocket] = useState<any>(null);
   const [personFilter, setPersonFilter] = useState<{ personKey: string; columnId: string } | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const { user } = useAuth();
 
   const loadData = useCallback(async () => {
     try {
@@ -100,6 +104,15 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       }));
     });
 
+    newSocket.on('item.updated', (updatedItem: Item) => {
+      setItems(prev => prev.map(item => 
+        item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+      ));
+      
+      // Update selected item if it's the one open
+      setSelectedItem(prev => (prev && prev.id === updatedItem.id) ? { ...prev, ...updatedItem } : prev);
+    });
+
     newSocket.on('item.archived', (data: any) => {
         setItems(prev => prev.filter(item => item.id !== data.id));
     });
@@ -113,15 +126,30 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
     };
   }, [boardId, loadData]);
 
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const data = await fetchUsers();
+        setUsers(data);
+      } catch (error) {
+        console.error('Failed to load users', error);
+      }
+    };
+    loadUsers();
+  }, []);
+
   const handleCreateItem = async (groupId: string): Promise<Item | undefined> => {
     if (!board) return;
     try {
       const newItem = await createItem({
         board_id: board.id,
         group_id: groupId,
-        created_by: 'user-1',
+        created_by: user?.id || 'system',
       });
-      setItems(prev => [...prev, newItem]);
+      setItems(prev => {
+        if (prev.find(i => i.id === newItem.id)) return prev;
+        return [...prev, newItem];
+      });
       return newItem;
     } catch (error) {
       console.error('Failed to create item', error);
@@ -153,7 +181,8 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
     try {
       // Optimistic update
       setItems(prev => prev.filter(i => i.id !== itemId));
-      await deleteItem(itemId);
+      setSelectedItemIds(prev => prev.filter(id => id !== itemId));
+      await deleteItem(itemId, user?.id);
     } catch (error) {
       console.error('Failed to delete item', error);
       loadData(); // Revert
@@ -183,7 +212,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
         return item;
       }));
 
-      await updateColumnValue(itemId, columnId, value);
+      await updateColumnValue(itemId, columnId, value, user?.id);
     } catch (error) {
       console.error('Failed to update value', error);
       loadData(); // Revert on error
@@ -315,6 +344,32 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
       const assignees = Array.isArray(val) ? val.map((v) => String(v)) : [String(val)];
       return assignees.includes(personFilter.personKey);
     });
+  };
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedItemIds([]);
+  };
+
+  const isItemSelected = (itemId: string) => selectedItemIds.includes(itemId);
+
+  const handleBulkDelete = async () => {
+    if (!selectedItemIds.length) return;
+    if (!confirm(`Are you sure you want to delete ${selectedItemIds.length} item${selectedItemIds.length === 1 ? '' : 's'}?`)) return;
+    const idsToDelete = [...selectedItemIds];
+    setItems(prev => prev.filter(item => !idsToDelete.includes(item.id)));
+    setSelectedItemIds([]);
+    try {
+      await Promise.all(idsToDelete.map(id => deleteItem(id, user?.id)));
+    } catch (error) {
+      console.error('Failed to delete some items', error);
+      loadData();
+    }
   };
 
   if (loading) return (
@@ -506,11 +561,35 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
             <ActivityLogModal
               boardId={boardId}
               onClose={() => setIsActivityLogOpen(false)}
+              users={users}
             />
           )}
 
           {viewMode === 'table' && (
             <DragDropContext onDragEnd={onDragEnd}>
+              {selectedItemIds.length > 0 && (
+                <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm text-slate-700">
+                  <div>
+                    <span className="font-medium text-blue-700">
+                      {selectedItemIds.length} item{selectedItemIds.length === 1 ? '' : 's'} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-3 py-1 rounded-md text-xs bg-red-500 text-white hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      className="px-3 py-1 rounded-md text-xs text-slate-600 hover:bg-blue-100"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
               {board.groups?.map(group => (
                 <GroupView
                   key={group.id}
@@ -524,6 +603,9 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
                   onDeleteGroup={handleDeleteGroup}
                   onDeleteItem={handleDeleteItem}
                   onItemClick={setSelectedItem}
+                  isItemSelected={isItemSelected}
+                  onToggleItemSelection={toggleItemSelection}
+                  users={users}
                 />
               ))}
               <button
@@ -560,6 +642,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
             <WorkloadView
               board={board}
               items={items}
+              users={users}
               onSelectPerson={(personKey, columnId) => {
                 if (!personKey) {
                   setPersonFilter(null);
@@ -579,6 +662,7 @@ export default function BoardCanvas({ boardId }: BoardCanvasProps) {
           columns={board.columns || []}
           onClose={() => setSelectedItem(null)}
           socket={socket}
+          users={users}
         />
       )}
     </div>
@@ -596,7 +680,10 @@ function GroupView({
   onUpdateGroup,
   onDeleteGroup,
   onDeleteItem,
-  onItemClick
+  onItemClick,
+  isItemSelected,
+  onToggleItemSelection,
+  users
 }: {
   group: Group;
   columns: Column[];
@@ -608,6 +695,9 @@ function GroupView({
   onDeleteGroup: (groupId: string) => void;
   onDeleteItem: (itemId: string) => void;
   onItemClick: (item: Item) => void;
+  isItemSelected: (itemId: string) => boolean;
+  onToggleItemSelection: (itemId: string) => void;
+  users: User[];
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(group.name);
@@ -713,6 +803,9 @@ function GroupView({
                 onUpdateValue={onUpdateValue}
                 onDeleteItem={onDeleteItem}
                 onItemClick={onItemClick}
+                selected={isItemSelected(item.id)}
+                onToggleSelected={() => onToggleItemSelection(item.id)}
+                users={users}
               />
             ))}
             <tr>
@@ -741,19 +834,30 @@ function ItemRow({
   columns,
   onUpdateValue,
   onDeleteItem,
-  onItemClick
+  onItemClick,
+  selected,
+  onToggleSelected,
+  users
 }: {
   item: Item;
   columns: Column[];
   onUpdateValue: (itemId: string, columnId: string, value: any) => void;
   onDeleteItem: (itemId: string) => void;
   onItemClick: (item: Item) => void;
+  selected: boolean;
+  onToggleSelected: () => void;
+  users: User[];
 }) {
   return (
     <tr className="group hover:bg-slate-50/50 border-b border-slate-100 last:border-b-0 transition-colors">
       <td className="p-3 border-r border-slate-200 bg-slate-50/30 text-center text-slate-400 sticky left-0 z-10">
-        <div className="w-1 h-full bg-blue-500 absolute left-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-slate-50/90 z-20 gap-1">
+        <div className="flex items-center justify-center gap-2">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelected}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
           <button
             onClick={() => onItemClick(item)}
             className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
@@ -769,9 +873,6 @@ function ItemRow({
             <Trash2 size={14} />
           </button>
         </div>
-        <div className="group-hover:opacity-0 transition-opacity">
-           <MessageSquare size={14} className="mx-auto text-slate-300" />
-        </div>
       </td>
       {columns.map(col => {
         const val = item.column_values?.find(v => v.column_id === col.id)?.value;
@@ -781,6 +882,7 @@ function ItemRow({
               column={col}
               value={val}
               onChange={(newVal) => onUpdateValue(item.id, col.id, newVal)}
+              users={users}
             />
           </td>
         );
@@ -793,11 +895,13 @@ function ItemRow({
 function CellEditor({
   column,
   value,
-  onChange
+  onChange,
+  users
 }: {
   column: Column;
   value: any;
   onChange: (val: any) => void;
+  users?: User[];
 }) {
   const [localValue, setLocalValue] = useState(value || '');
 
@@ -852,6 +956,49 @@ function CellEditor({
           onChange={(e) => onChange(e.target.value)}
         />
       );
+    case ColumnType.PERSON: {
+      const rawValue = Array.isArray(value) ? (value[0] ?? '') : value || '';
+      let selectValue = '';
+      let fallbackOption = '';
+      if (rawValue && users && users.length > 0) {
+        const byId = users.find(u => u.id === rawValue);
+        const byNameOrEmail = users.find(u => u.name === rawValue || u.email === rawValue);
+        if (byId) {
+          selectValue = byId.id;
+        } else if (byNameOrEmail) {
+          selectValue = byNameOrEmail.id;
+        } else {
+          fallbackOption = rawValue;
+        }
+      }
+      return (
+        <div className="h-full w-full p-1.5">
+          <div className="relative h-full">
+            <select
+              className="w-full h-full px-3 py-1.5 rounded-md text-sm bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500/20 appearance-none"
+              value={selectValue}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange(v || null);
+              }}
+            >
+              {fallbackOption && (
+                <option value={fallbackOption}>{fallbackOption}</option>
+              )}
+              <option value="">Unassigned</option>
+              {users?.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <ChevronDown size={14} />
+            </div>
+          </div>
+        </div>
+      );
+    }
     case ColumnType.NUMBERS:
       return (
         <div className="relative w-full h-full group">

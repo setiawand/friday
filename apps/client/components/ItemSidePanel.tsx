@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Item, Update, Column, ActivityLog, File as ItemFile, TimeLog } from '@/types';
-import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile, fetchTimeLogs, startTimer, stopTimer } from '@/lib/api';
+import type { Item, Update, Column, ActivityLog, File as ItemFile, TimeLog, User as AppUser } from '@/types';
+import { fetchUpdates, createUpdate, fetchItemActivityLogs, fetchFiles, createFile, deleteFile, fetchTimeLogs, startTimer, stopTimer, updateItem } from '@/lib/api';
 import { X, Send, User, Trash2, Link as LinkIcon, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
@@ -11,9 +11,10 @@ interface ItemSidePanelProps {
   columns: Column[];
   onClose: () => void;
   socket: any;
+  users: AppUser[];
 }
 
-export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSidePanelProps) {
+export default function ItemSidePanel({ item, columns, onClose, socket, users }: ItemSidePanelProps) {
   const [activeTab, setActiveTab] = useState<'updates' | 'files' | 'time' | 'log'>('updates');
   const [updates, setUpdates] = useState<Update[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -28,8 +29,23 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
   const [isAddingFile, setIsAddingFile] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
+  const [description, setDescription] = useState(item.description || '');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    setDescription(item.description || '');
+  }, [item.description]);
+
+  const handleSaveDescription = async () => {
+    if (description === item.description) return;
+    if (!user) return;
+    try {
+      await updateItem(item.id, { description, user_id: user.id });
+    } catch (error) {
+      console.error('Failed to save description', error);
+    }
+  };
 
   const loadUpdates = useCallback(async () => {
     try {
@@ -160,13 +176,17 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
     }
   };
 
-  const getItemName = () => {
+  const getItemDisplayName = (target: Item) => {
     const textColumn = columns.find(c => c.type === 'text');
     if (textColumn) {
-      const val = item.column_values?.find(cv => cv.column_id === textColumn.id);
+      const val = target.column_values?.find(cv => cv.column_id === textColumn.id);
       return val?.value || 'Untitled Item';
     }
     return 'Untitled Item';
+  };
+
+  const getItemName = () => {
+    return getItemDisplayName(item);
   };
 
   const formatLogAction = (log: ActivityLog) => {
@@ -182,6 +202,17 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
       case 'archive_item': return 'Archived this item';
       default: return log.action.replace(/_/g, ' ');
     }
+  };
+
+  const getLogUserLabel = (log: ActivityLog) => {
+    if (user && log.user_id === user.id) {
+      return 'You';
+    }
+    const match = users.find(u => u.id === log.user_id);
+    if (match) {
+      return match.name;
+    }
+    return `User ${log.user_id}`;
   };
 
   const formatDuration = (seconds: number) => {
@@ -242,6 +273,20 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
         >
           <X className="w-5 h-5" />
         </button>
+      </div>
+
+      {/* Description */}
+      <div className="px-6 py-4 bg-white border-b border-slate-100">
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleSaveDescription}
+          placeholder="Add a detailed description..."
+          className="w-full min-h-[60px] p-2 text-sm text-slate-700 placeholder:text-slate-400 border border-transparent hover:border-slate-200 focus:border-blue-500 rounded-md focus:outline-none resize-none transition-all"
+        />
       </div>
 
       {/* Tabs */}
@@ -465,7 +510,7 @@ export default function ItemSidePanel({ item, columns, onClose, socket }: ItemSi
                        </div>
                        <div>
                          <div className="flex items-center gap-2">
-                           <span className="font-medium text-slate-700 text-sm">User {log.user_id}</span>
+                           <span className="font-medium text-slate-700 text-sm">{getLogUserLabel(log)}</span>
                            <span className="text-slate-400 text-xs">{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</span>
                          </div>
                          <div className="text-slate-600 text-sm mt-0.5">

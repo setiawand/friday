@@ -113,19 +113,37 @@ export async function createItem(data: any) {
   return res.json();
 }
 
-export async function updateColumnValue(itemId: string, columnId: string, value: any) {
-  const res = await fetch(`${API_URL}/items/${itemId}/values`, {
+export async function updateItem(itemId: string, data: any) {
+  const res = await fetch(`${API_URL}/items/${itemId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ column_id: columnId, value }),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function deleteItem(itemId: string) {
-  await fetch(`${API_URL}/items/${itemId}`, {
-    method: 'DELETE',
+export async function updateColumnValue(itemId: string, columnId: string, value: any, userId?: string) {
+  const body: any = { column_id: columnId, value };
+  if (userId) {
+    body.user_id = userId;
+  }
+  const res = await fetch(`${API_URL}/items/${itemId}/values`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
+  return res.json();
+}
+
+export async function deleteItem(itemId: string, userId?: string) {
+  const options: RequestInit = {
+    method: 'DELETE',
+  };
+  if (userId) {
+    options.headers = { 'Content-Type': 'application/json' };
+    options.body = JSON.stringify({ user_id: userId });
+  }
+  await fetch(`${API_URL}/items/${itemId}`, options);
 }
 
 export async function fetchSubitems(itemId: string) {
@@ -183,6 +201,22 @@ export async function register(data: any) {
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Register failed');
+  return res.json();
+}
+
+export async function fetchUsers() {
+  const res = await fetch(`${API_URL}/auth/users`);
+  if (!res.ok) throw new Error('Failed to fetch users');
+  return res.json();
+}
+
+export async function updateUser(id: string, data: any) {
+  const res = await fetch(`${API_URL}/auth/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update user');
   return res.json();
 }
 

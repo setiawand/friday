@@ -28,6 +28,9 @@ export class Item {
   @Column()
   created_by: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @CreateDateColumn()
   created_at: Date;
 

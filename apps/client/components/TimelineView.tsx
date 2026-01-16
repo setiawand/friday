@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { Board, Item, ColumnType, Column } from '@/types';
+import { Board, Item, ColumnType, Column, ActivityLog } from '@/types';
+import { fetchItemActivityLogs } from '@/lib/api';
 
 interface TimelineViewProps {
   board: Board;
@@ -58,6 +59,13 @@ function formatDateForInput(date: Date) {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(date: string | Date | null | undefined) {
+  if (!date) return 'none';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return String(date);
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getItemName(item: Item, columns: Column[] | undefined) {
@@ -166,6 +174,26 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
 
     return { timelineItems: mapped, startDate: min, endDate: max };
   }, [items, board.columns, dateColumns, effectiveStartColumnId, effectiveEndColumnId]);
+
+  const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
+  const [historyByItem, setHistoryByItem] = useState<Record<string, ActivityLog[]>>({});
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
+
+  const handleToggleHistory = async (itemId: string) => {
+    if (activeHistoryItemId === itemId) {
+      setActiveHistoryItemId(null);
+      return;
+    }
+    setActiveHistoryItemId(itemId);
+    if (historyByItem[itemId]) return;
+    try {
+      setLoadingHistoryId(itemId);
+      const logs = await fetchItemActivityLogs(board.id, itemId);
+      setHistoryByItem(prev => ({ ...prev, [itemId]: logs }));
+    } finally {
+      setLoadingHistoryId(null);
+    }
+  };
 
   if (dateColumns.length === 0) {
     return (
@@ -404,8 +432,15 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
                 className="grid items-center"
                 style={{ gridTemplateColumns: `240px repeat(${totalDays}, minmax(40px, 1fr))` }}
               >
-                <div className="border-b border-slate-100 px-4 py-2 text-sm text-slate-800 bg-white sticky left-0 z-10">
-                  {ti.name}
+                <div className="border-b border-slate-100 px-4 py-2 text-sm text-slate-800 bg-white sticky left-0 z-10 flex items-center justify-between gap-2">
+                  <span>{ti.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleHistory(ti.id)}
+                    className="text-[11px] px-2 py-1 rounded border border-slate-200 text-slate-500 hover:bg-slate-100"
+                  >
+                    {activeHistoryItemId === ti.id ? 'Hide history' : 'Date history'}
+                  </button>
                 </div>
                 {dayColumns.map((_, idx) => (
                   <div
@@ -429,6 +464,55 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
                     />
                   )}
                 </div>
+                {activeHistoryItemId === ti.id && (
+                  <div
+                    className="col-span-full px-4 py-2 text-xs text-slate-600 bg-slate-50 border-t border-slate-200"
+                    style={{ gridColumn: `1 / span ${totalDays + 1}` }}
+                  >
+                    {loadingHistoryId === ti.id && !historyByItem[ti.id] && (
+                      <div>Loading date history...</div>
+                    )}
+                    {historyByItem[ti.id] && (
+                      <div className="space-y-1">
+                        {historyByItem[ti.id]
+                          .filter(log => log.action === 'update_value')
+                          .filter(log =>
+                            log.details?.column_id === effectiveStartColumnId ||
+                            (effectiveEndColumnId !== 'none' && log.details?.column_id === effectiveEndColumnId)
+                          )
+                          .map(log => {
+                            const isStart = log.details?.column_id === effectiveStartColumnId;
+                            const label = isStart ? 'Start' : 'End';
+                            const prev = log.details?.previous_value ?? null;
+                            const next = log.details?.value ?? null;
+                            return (
+                              <div key={log.id} className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">{label} date</span>{' '}
+                                  <span>
+                                    {prev
+                                      ? `${formatDateLabel(prev)} → ${formatDateLabel(next)}`
+                                      : `set to ${formatDateLabel(next)}`}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {new Date(log.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {historyByItem[ti.id].filter(
+                          log =>
+                            log.action === 'update_value' &&
+                            (log.details?.column_id === effectiveStartColumnId ||
+                              (effectiveEndColumnId !== 'none' && log.details?.column_id === effectiveEndColumnId))
+                        ).length === 0 && (
+                          <div>No date changes recorded yet for this item.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -44,6 +44,35 @@ export class ItemsService {
     return newItem;
   }
 
+  async updateItem(itemId: string, data: Partial<Item>, userId?: string) {
+    const existing = await this.itemRepo.findOne({ where: { id: itemId } });
+    await this.itemRepo.update(itemId, data);
+    const updatedItem = await this.itemRepo.findOne({ where: { id: itemId } });
+
+    if (!updatedItem) {
+      return null;
+    }
+
+    const changes: Record<string, any> = {};
+
+    if (Object.prototype.hasOwnProperty.call(data, 'description')) {
+      changes.description = {
+        previous: existing?.description ?? null,
+        current: updatedItem.description,
+      };
+    }
+
+    this.eventEmitter.emit('item.updated', {
+      board_id: updatedItem.board_id,
+      id: updatedItem.id,
+      description: updatedItem.description,
+      user_id: userId || updatedItem.created_by,
+      changes,
+    });
+
+    return updatedItem;
+  }
+
   async getSubitems(parentItemId: string) {
     return this.itemRepo.find({
       where: { parent_item_id: parentItemId },
@@ -73,17 +102,18 @@ export class ItemsService {
     return { success: true };
   }
 
-  async updateColumnValue(itemId: string, columnId: string, value: any) {
+  async updateColumnValue(itemId: string, columnId: string, value: any, userId?: string) {
     let cv = await this.columnValueRepo.findOne({
       where: { item_id: itemId, column_id: columnId },
       relations: ['item'],
     });
 
     let isNew = false;
-    
+    let previousValue: any = null;
+
     if (cv) {
+      previousValue = cv.value;
       cv.value = value;
-      // cv.updated_at is auto-updated by @UpdateDateColumn
     } else {
       isNew = true;
       cv = this.columnValueRepo.create({
@@ -91,7 +121,6 @@ export class ItemsService {
         column_id: columnId,
         value,
       });
-      // We need to fetch the item to get the board_id for the event
       cv.item = await this.itemRepo.findOne({ where: { id: itemId } });
     }
 
@@ -102,23 +131,28 @@ export class ItemsService {
       item_id: itemId,
       column_id: columnId,
       value,
-      is_new: isNew
+      previous_value: previousValue,
+      is_new: isNew,
+      user_id: userId || null
     });
 
     return cv;
   }
 
-  async archiveItem(itemId: string) {
+  async archiveItem(itemId: string, userId?: string) {
     const item = await this.itemRepo.findOne({ where: { id: itemId } });
     if (item) {
       item.archived_at = new Date();
       await this.itemRepo.save(item);
-      this.eventEmitter.emit('item.archived', item);
+      this.eventEmitter.emit('item.archived', {
+        ...item,
+        user_id: userId || null
+      });
     }
     return item;
   }
 
-  async deleteItem(itemId: string) {
+  async deleteItem(itemId: string, userId?: string) {
     const item = await this.itemRepo.findOne({ where: { id: itemId } });
     if (!item) {
        // Optional: throw new NotFoundException('Item not found');
@@ -133,7 +167,8 @@ export class ItemsService {
     
     this.eventEmitter.emit('item.deleted', {
       id: deletedId,
-      board_id: boardId
+      board_id: boardId,
+      user_id: userId || null
     });
     
     return { success: true };

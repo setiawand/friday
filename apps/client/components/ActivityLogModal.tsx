@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { X, Clock, Activity, User } from 'lucide-react';
 import { fetchActivityLogs } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import type { User as AppUser } from '@/types';
 
 interface ActivityLog {
   id: string;
@@ -14,11 +16,14 @@ interface ActivityLog {
 interface ActivityLogModalProps {
   boardId: string;
   onClose: () => void;
+  users?: AppUser[];
 }
 
-export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalProps) {
+export default function ActivityLogModal({ boardId, onClose, users }: ActivityLogModalProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const userList = users || [];
 
   const loadLogs = useCallback(async () => {
     try {
@@ -41,6 +46,17 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
 
   const formatTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString();
+  };
+
+  const getUserLabel = (userId: string) => {
+    if (user && userId === user.id) {
+      return 'You';
+    }
+    const match = userList.find(u => u.id === userId);
+    if (match) {
+      return match.name;
+    }
+    return `User ${userId}`;
   };
 
   return (
@@ -82,7 +98,7 @@ export default function ActivityLogModal({ boardId, onClose }: ActivityLogModalP
                       </div>
                       <div>
                         <div className="font-medium text-slate-900">
-                          {log.user_id === 'user-1' ? 'You' : log.user_id} 
+                          {getUserLabel(log.user_id)} 
                           <span className="text-slate-500 font-normal"> {formatAction(log.action)}</span>
                         </div>
                         <div className="text-sm text-slate-500 mt-1">

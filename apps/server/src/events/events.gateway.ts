@@ -61,6 +61,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`board:${payload.board_id}`).emit('column_value.updated', payload);
     }
   }
+ 
+  @OnEvent('item.updated')
+  handleItemUpdated(payload: any) {
+    if (payload.board_id) {
+      this.server.to(`board:${payload.board_id}`).emit('item.updated', payload);
+    }
+  }
   
   @OnEvent('item.archived')
   handleItemArchived(payload: any) {
