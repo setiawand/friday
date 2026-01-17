@@ -2,14 +2,14 @@
 
 import BoardList from "@/components/BoardList";
 import NotificationsPopover from "@/components/NotificationsPopover";
-import { Search, User, Zap, LayoutDashboard, Shield, Menu } from 'lucide-react';
+import { Search, User, Zap, LayoutDashboard, Shield, Menu, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -92,7 +92,16 @@ export default function Home() {
               </button>
               
               <NotificationsPopover />
-              
+
+              <button
+                type="button"
+                onClick={logout}
+                className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <LogOut size={14} />
+                <span>Logout</span>
+              </button>
+
               <div 
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs cursor-pointer ring-2 ring-transparent hover:ring-blue-200 transition-all"
                 style={{ backgroundColor: user.color }}
@@ -123,6 +132,17 @@ export default function Home() {
                     <span>Admin</span>
                   </Link>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="mt-1 flex items-center gap-2 px-2 py-2 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium"
+                >
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </button>
               </div>
             </div>
           )}

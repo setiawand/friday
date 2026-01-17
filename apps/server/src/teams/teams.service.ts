@@ -52,5 +52,23 @@ export class TeamsService {
       relations: ['user'],
     });
   }
-}
 
+  async removeMember(memberId: string) {
+    const existing = await this.memberRepo.findOne({ where: { id: memberId } });
+    if (!existing) {
+      throw new NotFoundException('Team member not found');
+    }
+    await this.memberRepo.remove(existing);
+    return { success: true };
+  }
+
+  async deleteTeam(teamId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    await this.memberRepo.delete({ team_id: teamId });
+    await this.teamRepo.delete(teamId);
+    return { success: true };
+  }
+}

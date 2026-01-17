@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 
 @Controller('workspaces/:workspaceId/teams')
@@ -27,5 +27,14 @@ export class TeamsController {
   ) {
     return this.teamsService.addMember(teamId, body.userId, body.role);
   }
-}
 
+  @Delete(':teamId/members/:memberId')
+  removeMember(@Param('memberId') memberId: string) {
+    return this.teamsService.removeMember(memberId);
+  }
+
+  @Delete(':teamId')
+  deleteTeam(@Param('teamId') teamId: string) {
+    return this.teamsService.deleteTeam(teamId);
+  }
+}

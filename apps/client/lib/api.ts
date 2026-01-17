@@ -12,6 +12,47 @@ export async function fetchWorkspaces() {
   return res.json();
 }
 
+// Teams
+export async function fetchTeams(workspaceId: string) {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/teams`);
+  return res.json();
+}
+
+export async function createTeam(workspaceId: string, name: string) {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/teams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return res.json();
+}
+
+export async function fetchTeamMembers(workspaceId: string, teamId: string) {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/teams/${teamId}/members`);
+  return res.json();
+}
+
+export async function addTeamMember(workspaceId: string, teamId: string, userId: string, role: string = 'member') {
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/teams/${teamId}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, role }),
+  });
+  return res.json();
+}
+
+export async function removeTeamMember(workspaceId: string, teamId: string, memberId: string) {
+  await fetch(`${API_URL}/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteTeam(workspaceId: string, teamId: string) {
+  await fetch(`${API_URL}/workspaces/${workspaceId}/teams/${teamId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function createWorkspace(data: any) {
   const res = await fetch(`${API_URL}/workspaces`, {
     method: 'POST',

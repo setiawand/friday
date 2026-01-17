@@ -6,6 +6,20 @@ export interface Workspace {
   is_active: boolean;
 }
 
+export interface Team {
+  id: string;
+  name: string;
+  workspace_id: string;
+}
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: string;
+  user?: User;
+}
+
 export interface User {
   id: string;
   name: string;
