@@ -155,12 +155,12 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-5xl mx-auto py-10 px-6">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Organization management and account-level audit logs.
+              Workspace management and account-level audit logs.
             </p>
           </div>
           <Link
@@ -174,13 +174,13 @@ export default function AdminPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
-              Organizations
+              Workspaces
             </h2>
 
-            <form onSubmit={handleCreateOrg} className="flex gap-2 mb-4">
+            <form onSubmit={handleCreateOrg} className="flex flex-col sm:flex-row gap-2 mb-4">
               <input
                 type="text"
-                placeholder="New organization name"
+                placeholder="New workspace name"
                 className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
@@ -195,9 +195,9 @@ export default function AdminPage() {
             </form>
 
             {loadingWorkspaces ? (
-              <div className="text-sm text-slate-400">Loading organizations...</div>
+              <div className="text-sm text-slate-400">Loading workspaces...</div>
             ) : workspaces.length === 0 ? (
-              <div className="text-sm text-slate-400">No organizations yet.</div>
+              <div className="text-sm text-slate-400">No workspaces yet.</div>
             ) : (
               <div className="space-y-2">
                 {workspaces.map(ws => (

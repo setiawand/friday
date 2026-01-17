@@ -356,7 +356,7 @@ export default function TimelineView({ board, items, onUpdateItem }: TimelineVie
 
   return (
     <div className="border border-slate-200 rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-4">
             <div>
               <div className="text-sm font-medium text-slate-900">Timeline</div>

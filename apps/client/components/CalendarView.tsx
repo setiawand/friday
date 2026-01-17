@@ -152,7 +152,7 @@ export default function CalendarView({ board, items, onCreateItemForDate, onSele
 
   return (
     <div className="border border-slate-200 rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3">
           <div className="text-sm font-medium text-slate-900">Calendar</div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
